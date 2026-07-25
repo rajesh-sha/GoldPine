@@ -1,15 +1,15 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Gold Liquidity Sweep PRO v6.7.6 — TIMEZONE LOCK [Rajesh Sha]
+// Gold Liquidity Sweep PRO v6.7.7 — SMART LABELS [Rajesh Sha]
 // TIMEZONE POLICY:
 //   TRADE CLOCK = America/New_York  (killzones, news, dead hours, day/week opens, bias day)
 //   DISPLAY CLOCK = sigTZ (default Australia/Melbourne) for table/labels only
-// Session markers pinned to TOP. Melb+NY shown together in the table.
+// Smart labels: merge same-price opens; short RND tips; Melb+NY in table.
 //
 // USE: OANDA:XAUUSD, 1-minute. HTF non-repainting ([1]+lookahead_on).
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=6
-indicator("Gold Liquidity Sweep PRO v6.7.6 — Signals",
-     shorttitle = "GOLD LiqSweep PRO v6.7.6",
+indicator("Gold Liquidity Sweep PRO v6.7.7 — Signals",
+     shorttitle = "GOLD LiqSweep PRO v6.7.7",
      overlay = true,
      max_lines_count = 500,
      max_labels_count = 500,
@@ -516,7 +516,7 @@ if newDay
         if not na(dayOpenLb)
             label.delete(dayOpenLb)
         dayOpenLn := line.new(bar_index, dayOpen, bar_index + 1, dayOpen, extend = extend.right, color = color.rgb(191, 128, 64), width = 1, style = line.style_dotted)
-        dayOpenLb := label.new(bar_index, dayOpen, useSimple ? "TODAY OPEN (NY day) " + str.tostring(dayOpen, format.mintick) + " · " + str.format_time(time, "dd MMM", TZ_NY) + " NY / " + str.format_time(time, "dd MMM HH:mm", sigTZ) + " Melb — returns here" : "Day-O  " + str.tostring(dayOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(191, 128, 64)), textcolor = f_lblTx(color.rgb(191, 128, 64)), size = size.small)
+        dayOpenLb := label.new(bar_index, dayOpen, useSimple ? "DAY OPEN " + str.tostring(dayOpen, format.mintick) + " · magnet" : "Day-O  " + str.tostring(dayOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(191, 128, 64)), textcolor = f_lblTx(color.rgb(191, 128, 64)), size = size.small)
 else
     if na(cdH) or high > cdH
         cdH := high
@@ -544,7 +544,7 @@ if newWeek
         if not na(weekOpenLb)
             label.delete(weekOpenLb)
         weekOpenLn := line.new(bar_index, weekOpen, bar_index + 1, weekOpen, extend = extend.right, color = color.rgb(176, 106, 56), width = 1, style = line.style_dotted)
-        weekOpenLb := label.new(bar_index, weekOpen, useSimple ? "WEEK OPEN (NY week) " + str.tostring(weekOpen, format.mintick) + " · " + str.format_time(time, "dd MMM", TZ_NY) + " NY / " + str.format_time(time, "dd MMM HH:mm", sigTZ) + " Melb — returns here" : "Week-O  " + str.tostring(weekOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(176, 106, 56)), textcolor = f_lblTx(color.rgb(176, 106, 56)), size = size.small)
+        weekOpenLb := label.new(bar_index, weekOpen, useSimple ? "WEEK OPEN " + str.tostring(weekOpen, format.mintick) + " · magnet" : "Week-O  " + str.tostring(weekOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(176, 106, 56)), textcolor = f_lblTx(color.rgb(176, 106, 56)), size = size.small)
 else
     if na(cwH) or high > cwH
         cwH := high
@@ -563,7 +563,7 @@ if useOpens and newNYMid
     if not na(midOpenLb)
         label.delete(midOpenLb)
     midOpenLn := line.new(bar_index, midOpen, bar_index + 1, midOpen, extend = extend.right, color = color.rgb(255, 152, 0), width = 2, style = line.style_dotted)
-    midOpenLb := label.new(bar_index, midOpen, useSimple ? "NY MIDNIGHT OPEN " + str.tostring(midOpen, format.mintick) + " · " + str.format_time(time, "dd MMM yyyy", TZ_NY) + " — above this = SELL day · below this = BUY day" : "NY-Mid  " + str.tostring(midOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(255, 152, 0)), textcolor = f_lblTx(color.rgb(255, 152, 0)), size = size.small)
+    midOpenLb := label.new(bar_index, midOpen, useSimple ? "NY OPEN " + str.tostring(midOpen, format.mintick) + " · lean" : "NY-Mid  " + str.tostring(midOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(255, 152, 0)), textcolor = f_lblTx(color.rgb(255, 152, 0)), size = size.small)
 
 // ── NDOG / NWOG (New Day / New Week Opening Gaps) ──
 var float ndogTop = na
@@ -659,10 +659,9 @@ f_addRound(px, isHigh) =>
     L.pool  := isHigh ? "BSL" : "SSL"
     L.tier  := "EXT"
     L.ln := line.new(bar_index, px, bar_index + 1, px, extend = extend.right, color = color.new(col, 35), width = 1, style = line.style_dotted)
-    // Keep previous RND wording — never remove; tidy via pin stagger only
     if showRoundLbs
-        string tip = useSimple ? (isHigh ? " RND high — spike up=SELL" : " RND low — spike down=BUY") : " [" + L.pool + "]"
-        L.lb := label.new(bar_index, px, nm + tip, style = label.style_label_right, color = f_lblBg(col), textcolor = f_lblTx(col), size = size.small)
+        string tip = useSimple ? (isHigh ? " · sell if fake↑" : " · buy if fake↓") : " [" + L.pool + "]"
+        L.lb := label.new(bar_index, px, nm + tip, style = label.style_label_right, color = f_lblBg(col), textcolor = f_lblTx(col), size = size.tiny)
     array.push(roundLevels, L)
 
 var float lastRoundAnchor = na
@@ -1759,17 +1758,37 @@ var bool drawDnMerged = false
 f_nearPx(float a, float b) =>
     not na(a) and not na(b) and math.abs(a - b) <= math.max(atrVal * 2.5, close * 0.0005)
 
+// Exact-ish same print (day open == NY midnight)
+f_samePrint(float a, float b) =>
+    not na(a) and not na(b) and math.abs(a - b) <= math.max(syminfo.mintick * 4, close * 0.00002)
+
+f_leanTxt(float ref) =>
+    na(ref) ? "" : close < ref ? (useSimple ? "below→BUY" : "disc") : close > ref ? (useSimple ? "above→SELL" : "prem") : (useSimple ? "at open" : "flat")
+
+f_dayOpenTxt() =>
+    useSimple ? "DAY OPEN " + str.tostring(dayOpen, format.mintick) + " · magnet" : "Day-O " + str.tostring(dayOpen, format.mintick)
+
+f_weekOpenTxt() =>
+    useSimple ? "WEEK OPEN " + str.tostring(weekOpen, format.mintick) + " · magnet" : "Week-O " + str.tostring(weekOpen, format.mintick)
+
+f_midOpenTxt() =>
+    useSimple ? "NY OPEN " + str.tostring(midOpen, format.mintick) + " · " + f_leanTxt(midOpen) : "NY-Mid " + str.tostring(midOpen, format.mintick)
+
+// One label when Today open == NY midnight (common)
+f_dayMidTxt() =>
+    useSimple ? "NY DAY OPEN " + str.tostring(dayOpen, format.mintick) + " · " + f_leanTxt(dayOpen) + " · magnet" : "Day/NY-O " + str.tostring(dayOpen, format.mintick)
+
 // Rebuild a level's short base text (avoids appending forever)
 f_levelBaseTxt(LiqLevel L) =>
-    // RND name already includes the number — don't print price twice
+    bool isRnd = str.startswith(L.name, "RND")
     bool nameHasPx = str.contains(L.name, str.tostring(math.round(L.price)))
-    string pxBit = nameHasPx ? "" : (" " + str.tostring(L.price, format.mintick))
-    useSimple ? (L.name + pxBit + (L.kind == "high" ? " | fake UP = look SELL" : " | fake DOWN = look BUY")) : (L.name + " [" + L.pool + "] " + str.tostring(L.price, format.mintick))
+    string pxBit = nameHasPx or isRnd ? "" : (" " + str.tostring(L.price, format.mintick))
+    useSimple ? (isRnd ? (L.name + (L.kind == "high" ? " · sell if fake↑" : " · buy if fake↓")) : (L.name + pxBit + (L.kind == "high" ? " · sell if fake↑" : " · buy if fake↓"))) : (L.name + " [" + L.pool + "] " + str.tostring(L.price, format.mintick))
 
 // Try merge cash-out tag into the nearest existing label on that shelf. Returns true if merged.
 f_mergeCashTag(float cashPx, bool isBuy) =>
     bool merged = false
-    string tag = useSimple ? (isBuy ? " · also BUY cash-out" : " · also SELL cash-out") : (isBuy ? " · BSL" : " · SSL")
+    string tag = useSimple ? (isBuy ? " · +BUY exit" : " · +SELL exit") : (isBuy ? " · BSL" : " · SSL")
     float bestDist = 1e12
     label bestLb = na
     string bestBase = ""
@@ -1779,19 +1798,19 @@ f_mergeCashTag(float cashPx, bool isBuy) =>
             if d < bestDist
                 bestDist := d
                 bestLb := dayOpenLb
-                bestBase := useSimple ? "TODAY OPEN (NY day) " + str.tostring(dayOpen, format.mintick) + (na(dayOpenTime) ? "" : " · " + str.format_time(dayOpenTime, "dd MMM", TZ_NY) + " NY") + " — returns here" : "Day-O " + str.tostring(dayOpen, format.mintick)
+                bestBase := f_samePrint(dayOpen, midOpen) ? f_dayMidTxt() : f_dayOpenTxt()
         if not na(weekOpenLb) and f_nearPx(cashPx, weekOpen)
             float d = math.abs(cashPx - weekOpen)
             if d < bestDist
                 bestDist := d
                 bestLb := weekOpenLb
-                bestBase := useSimple ? "WEEK OPEN (NY week) " + str.tostring(weekOpen, format.mintick) + (na(weekOpenTime) ? "" : " · " + str.format_time(weekOpenTime, "dd MMM", TZ_NY) + " NY") + " — returns here" : "Week-O " + str.tostring(weekOpen, format.mintick)
+                bestBase := f_weekOpenTxt()
         if not na(midOpenLb) and f_nearPx(cashPx, midOpen)
             float d = math.abs(cashPx - midOpen)
             if d < bestDist
                 bestDist := d
                 bestLb := midOpenLb
-                bestBase := useSimple ? "NY MIDNIGHT " + str.tostring(midOpen, format.mintick) + (na(midOpenTime) ? "" : " · " + str.format_time(midOpenTime, "dd MMM", TZ_NY)) + " — above=SELL · below=BUY" : "NY-Mid " + str.tostring(midOpen, format.mintick)
+                bestBase := f_samePrint(dayOpen, midOpen) ? f_dayMidTxt() : f_midOpenTxt()
     if array.size(staticLevels) > 0
         for L in staticLevels
             if not na(L.lb) and not na(L.price) and f_nearPx(cashPx, L.price)
@@ -1837,14 +1856,27 @@ if showEliteVis and barstate.islast
     drawUpMerged := false
     drawDnMerged := false
 
-    // Reset open bases every bar (clean), then merge may append
+    // Smart open labels: merge day+midnight when same print; absorb nearby RND text
+    bool dayMidSame = useOpens and f_samePrint(dayOpen, midOpen)
     if useOpens and not na(dayOpenLb) and not na(dayOpen)
-        label.set_text(dayOpenLb, useSimple ? "TODAY OPEN (NY day) " + str.tostring(dayOpen, format.mintick) + (na(dayOpenTime) ? "" : " · " + str.format_time(dayOpenTime, "dd MMM", TZ_NY) + " NY") + " — returns here" : "Day-O " + str.tostring(dayOpen, format.mintick))
+        label.set_text(dayOpenLb, dayMidSame ? f_dayMidTxt() : f_dayOpenTxt())
+        // Prefer orange "NY open" color when merged with midnight
+        if dayMidSame
+            f_styleLb(dayOpenLb, color.rgb(255, 152, 0))
     if useOpens and not na(weekOpenLb) and not na(weekOpen)
-        label.set_text(weekOpenLb, useSimple ? "WEEK OPEN (NY week) " + str.tostring(weekOpen, format.mintick) + (na(weekOpenTime) ? "" : " · " + str.format_time(weekOpenTime, "dd MMM", TZ_NY) + " NY") + " — returns here" : "Week-O " + str.tostring(weekOpen, format.mintick))
-    if useOpens and not na(midOpenLb) and not na(midOpen)
-        label.set_text(midOpenLb, useSimple ? "NY MIDNIGHT " + str.tostring(midOpen, format.mintick) + (na(midOpenTime) ? "" : " · " + str.format_time(midOpenTime, "dd MMM", TZ_NY)) + " — above=SELL · below=BUY" : "NY-Mid " + str.tostring(midOpen, format.mintick))
-    // Reset level label bases so merge tags do not stack across bars
+        label.set_text(weekOpenLb, f_weekOpenTxt())
+    if useOpens and not na(midOpen)
+        if dayMidSame
+            // Hide duplicate midnight label — line stays for the thicker NY open rail
+            if not na(midOpenLb)
+                label.delete(midOpenLb)
+                midOpenLb := na
+        else if not na(midOpenLb)
+            label.set_text(midOpenLb, f_midOpenTxt())
+        else
+            midOpenLb := label.new(bar_index, midOpen, f_midOpenTxt(), style = label.style_label_right, color = f_lblBg(color.rgb(255, 152, 0)), textcolor = f_lblTx(color.rgb(255, 152, 0)), size = size.small)
+
+    // Reset level label bases; hide RND label if it sits on an open shelf
     if array.size(staticLevels) > 0
         for L in staticLevels
             if not na(L.lb) and not na(L.price)
@@ -1855,8 +1887,16 @@ if showEliteVis and barstate.islast
                 label.set_text(L.lb, f_levelBaseTxt(L))
     if array.size(roundLevels) > 0
         for L in roundLevels
-            if not na(L.lb) and not na(L.price)
-                label.set_text(L.lb, f_levelBaseTxt(L))
+            if not na(L.price)
+                bool onOpen = useOpens and (f_nearPx(L.price, dayOpen) or f_nearPx(L.price, weekOpen) or f_nearPx(L.price, midOpen))
+                if onOpen
+                    if not na(L.lb)
+                        label.delete(L.lb)
+                        L.lb := na
+                else if not na(L.lb)
+                    label.set_text(L.lb, f_levelBaseTxt(L))
+                else if showRoundLbs
+                    L.lb := label.new(bar_index, L.price, f_levelBaseTxt(L), style = label.style_label_right, color = f_lblBg(L.col), textcolor = f_lblTx(L.col), size = size.tiny)
 
     if useHTFDraw and not na(drawBSL)
         drawUpMerged := f_mergeCashTag(drawBSL, true)
@@ -1945,7 +1985,8 @@ if pinLabels and barstate.islast
             array.push(allLbs, weekOpenLb)
             array.push(allLns, weekOpenLn)
             array.push(allYs, weekOpen)
-        if not na(midOpenLb) and not na(midOpen)
+        // Skip midnight label when merged into day open
+        if not na(midOpenLb) and not na(midOpen) and not f_samePrint(dayOpen, midOpen)
             array.push(allLbs, midOpenLb)
             array.push(allLns, midOpenLn)
             array.push(allYs, midOpen)
@@ -2220,7 +2261,7 @@ if showTable and barstate.islast
     color midMonCol = not useOpens or na(midOpen) ? color.gray : close < midOpen ? tblGood : close > midOpen ? tblBad : color.orange
 
     // ═══════════ LAYOUT (read top → bottom) ═══════════
-    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.7.6", text_color = color.white, bgcolor = color.navy, text_size = size.small)
+    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.7.7", text_color = color.white, bgcolor = color.navy, text_size = size.small)
     table.cell(t, 1, 0, hdrStatus, text_color = color.white, bgcolor = hdrBg, text_size = size.small)
 
     f_tblSec(t, 1, useSimple ? "1) GATE - can I trade now?" : "1) GATE")
@@ -2261,7 +2302,7 @@ if showTable and barstate.islast
     f_tblRow(t, 30, useSimple ? "Research edge (desk)" : "Edge", edgeTxt, tblMute, edgeCol)
     f_tblRow(t, 31, useSimple ? "Ideas today / last" : "Signals", str.tostring(signalsToday) + " / " + str.tostring(maxSigDay) + " · " + (lastTag == "" ? (useSimple ? "no idea yet" : "-") : lastTag + (na(lastEntry) or na(lastSL) or na(lastTP1) ? "" : " · SL " + str.tostring(lastSL, format.mintick) + " · TP " + str.tostring(lastTP1, format.mintick) + " · " + str.tostring(math.abs(lastTP1 - lastEntry) / math.abs(lastEntry - lastSL), "#.#") + "R")), tblMute, tblKey)
     table.cell(t, 0, 32, useSimple ? "How entries work" : "Mode", text_color = tblMute, text_size = size.tiny)
-    table.cell(t, 1, 32, useSimple ? "Research → wait gate → sweep → flip → pullback | v6.7.6" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.7.6", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
+    table.cell(t, 1, 32, useSimple ? "Research → wait gate → sweep → flip → pullback | v6.7.7" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.7.7", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 33, useSimple ? "Tools ON" : "Edges", text_color = tblMute, text_size = size.tiny)
     table.cell(t, 1, 33, useSimple ? ((useDailyBias ? "DaySide " : "") + (useJudasWin ? "FakeMove " : "") + (useDispGate ? "StrongPush " : "") + (sbPlaybook ? "BestHour " : "") + (useIPDA ? "20/40Day " : "") + (useSmtES ? "Stocks " : "") + (useDeadHrs ? "SlowHrs " : "") + (useHTFDraw ? "TP-lines " : "") + (useAMD ? "DayStory " : "") + (aPlusMode ? "TopOnly" : "")) : ((useDailyBias ? "DayBias " : "") + (useJudasWin ? "Judas " : "") + (useDispGate ? "DispFVG " : "") + (sbPlaybook ? "SB " : "") + (useIPDA ? "IPDA " : "") + (useSmtES ? "ES " : "") + (useDeadHrs ? "DeadHrs " : "") + (useHTFDraw ? "Draw " : "") + (useAMD ? "AMD " : "") + (aPlusMode ? "A+" : "")), text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 34, useSimple ? "Desk rule" : "Flow", text_color = tblMute, text_size = size.tiny)
