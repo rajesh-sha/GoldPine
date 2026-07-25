@@ -1,31 +1,25 @@
-# GoldPine — Gold Liquidity Sweep PRO v6.0
+# GoldPine — Gold Liquidity Sweep PRO v6.1
 
 Institutional **liquidity / price-action** signal indicator for XAUUSD (TradingView Pine v6).
 
-v6 keeps the v3.2 look + v5 elite edges, and adds a plain-English **Daily Playbook** for intraday Gold.
+**v6.1 = complete daily playbook** (all 10 checklist edges).
 
-## Sequence desks trade
+## Sequence
 
-**HTF Draw → Inducement → External sweep → CISD/MSS → Prem/Disc + OTE → CE/OB/Breaker/IFVG/Unicorn → opposite pool / draw target**
+**Daily bias lock → Judas / SB path → Sweep → CISD/MSS → Disp+FVG → Prem/Disc + OTE → CE/OB → Asia or -0.27 TP1 → PDH/PDL/draw TP2**
 
-| Edge | Role |
-|------|------|
-| PDH/PDL, Asia, Day/Week, EQH/EQL, rounds | Liquidity pools |
-| Daily Bias (midnight/day open + 4H) | Preferred side before London |
-| Judas fake-move window | London open trap path (fake one side → reverse) |
-| Strong displacement gate | Hard push required after the fake |
-| Silver Bullet hour + 1 trade/KZ | Clean delivery hour / anti-overtrade |
-| TP1 = Asia opposite | Classic Judas first target |
-| HTF Draw on Liquidity | Only buy toward BSL / sell toward SSL |
-| HTF POI (1H FVG) | LTF entry aligned with higher-TF shelf |
-| Power of 3 (AMD) | Asia ACC → London MAN → NY DIST |
-| Internal → External nesting | Inducement filter |
-| MSS / CISD | Structure confirmation after sweep |
-| Premium / Discount + OTE + CE | Entry quality |
-| IFVG / Unicorn / BPR | Failed FVG, breaker+FVG, balanced range |
-| NDOG / NWOG | Day/week opening gaps |
-| SMT Gold vs Silver + DXY | True swing divergence |
-| News blackout + A+ mode | Stand aside / strict confluence |
+| # | Edge | Status |
+|---|------|--------|
+| 1 | Daily bias narrative (lock BUY/SELL before London) | Done |
+| 2 | True Judas (Asia against bias → disp+FVG → MSS with bias) | Done |
+| 3 | Displacement + FVG gate | Done |
+| 4 | Silver Bullet model (swing sweep → MSS → FVG) | Done |
+| 5 | TP1 Asia opposite / -0.27 expansion | Done |
+| 6 | IPDA 20/40/60 day magnets | Done |
+| 7 | London close / NY lunch dead hours | Done |
+| 8 | SMT Gold vs Ag + DXY + **ES** | Done |
+| 9 | One trade per killzone | Done |
+| 10 | News windows (CPI/NFP/FOMC manual) | Done |
 
 ## Files
 
@@ -35,22 +29,10 @@ v6 keeps the v3.2 look + v5 elite edges, and adds a plain-English **Daily Playbo
 ## Chart setup
 
 1. `OANDA:XAUUSD` on **1 minute**
-2. Pine Editor → paste full file → Add to chart
-3. Confirm title **v6.0**
-4. Keep Entry Style = `MSS + FVG/OB (PRO)`
-5. Settings group **Daily Playbook (v6)** — Daily Bias / Judas / Displacement / Silver Bullet
-
-## Defaults (v6)
-
-- Pure Liquidity mode: **ON**
-- Daily Bias guide: **ON** (require = OFF)
-- Judas window: **ON** (require path = OFF)
-- Strong displacement: **ON**
-- Silver Bullet boost: **ON** (SB-only = OFF)
-- TP1 Asia opposite: **ON**
-- Max 1 signal per killzone block: **ON**
-- HTF Draw required: **ON**
-- A+ ONLY mode: **OFF**
+2. Paste full file → Add to chart
+3. Confirm title **v6.1**
+4. Entry Style = `MSS + FVG/OB (PRO)`
+5. Tune **Daily Playbook (v6.1)** + news windows to your CPI/NFP/FOMC times
 
 ## Disclaimer
 
