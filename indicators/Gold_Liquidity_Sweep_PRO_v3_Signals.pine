@@ -1,13 +1,13 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Gold Liquidity Sweep PRO v6.3.1 — FULL PLAIN ENGLISH [Rajesh Sha]
-// Fix: 20-day high/low row now says High=SELL / Low=BUY in plain English.
+// Gold Liquidity Sweep PRO v6.4 — RESEARCH DESK [Rajesh Sha]
+// Desk flow: Gate → Bias → Levels → Confirm → Decision. Research story kept even when gated.
 // COMPILE-FIXED: clearPend; const plotshape; global table helpers (CE10156).
 //
 // USE: OANDA:XAUUSD, 1-minute. HTF non-repainting ([1]+lookahead_on).
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=6
-indicator("Gold Liquidity Sweep PRO v6.3.1 — Signals",
-     shorttitle = "GOLD LiqSweep PRO v6.3.1",
+indicator("Gold Liquidity Sweep PRO v6.4 — Signals",
+     shorttitle = "GOLD LiqSweep PRO v6.4",
      overlay = true,
      max_lines_count = 500,
      max_labels_count = 500,
@@ -828,14 +828,17 @@ nearOpen = useOpens and ((not na(dayOpen) and math.abs(close - dayOpen) <= atrVa
 
 // ═══════════════════════════ ELITE EDGE PACK (v5) ═══════════════════════════
 // HTF Draw on Liquidity — nearest untapped external pool in each direction
+// Only count targets with real room (desk: ignore noise magnets inside 0.75 ATR)
 f_pickAbove(float px, float best) =>
     float r = best
-    if not na(px) and px > close
+    float minD = math.max(atrVal * 0.75, syminfo.mintick * 20)
+    if not na(px) and px >= close + minD
         r := na(r) ? px : math.min(r, px)
     r
 f_pickBelow(float px, float best) =>
     float r = best
-    if not na(px) and px < close
+    float minD = math.max(atrVal * 0.75, syminfo.mintick * 20)
+    if not na(px) and px <= close - minD
         r := na(r) ? px : math.max(r, px)
     r
 float drawBSL = na
@@ -868,7 +871,7 @@ if array.size(roundLevels) > 0
             drawSSL := f_pickBelow(L.price, drawSSL)
 drawLongOK  = not useHTFDraw or not requireDraw or not na(drawBSL)
 drawShortOK = not useHTFDraw or not requireDraw or not na(drawSSL)
-string drawTxt = not useHTFDraw ? "Off" : useSimple ? ((not na(drawBSL) ? "TP up " + str.tostring(drawBSL, format.mintick) : "no up target") + " | " + (not na(drawSSL) ? "TP down " + str.tostring(drawSSL, format.mintick) : "no down target")) : ((not na(drawBSL) ? "UP " + str.tostring(drawBSL, format.mintick) : "no BSL") + " | " + (not na(drawSSL) ? "DN " + str.tostring(drawSSL, format.mintick) : "no SSL"))
+string drawTxt = not useHTFDraw ? "Off" : useSimple ? ((not na(drawBSL) ? "TP up " + str.tostring(drawBSL, format.mintick) + " (+$" + str.tostring(drawBSL - close, "#.#") + ")" : "no clean up target") + " | " + (not na(drawSSL) ? "TP down " + str.tostring(drawSSL, format.mintick) + " (-$" + str.tostring(close - drawSSL, "#.#") + ")" : "no clean down target")) : ((not na(drawBSL) ? "UP " + str.tostring(drawBSL, format.mintick) : "no BSL") + " | " + (not na(drawSSL) ? "DN " + str.tostring(drawSSL, format.mintick) : "no SSL"))
 
 // HTF POI alignment
 inHtfBullPOI = useHTFPOI and not na(htfBullBot) and low <= htfBullTop and high >= htfBullBot
@@ -1808,6 +1811,8 @@ if showTable and barstate.islast
     string poiExtra = (nearBPR ? (useSimple ? " · overlap zone" : " · BPR") : "") + (inBullIFVG or inBearIFVG ? (useSimple ? " · flipped gap" : " · IFVG") : "") + (nearNDOG or nearNWOG ? (useSimple ? " · gap" : " · GAP") : "")
     string newsTxt = inNews ? (useSimple ? "NEWS — do not trade" : "BLACKOUT") : (useNewsBlk ? (useSimple ? "Clear — OK" : "Clear") : "Off")
     color newsCol = inNews ? tblBad : tblGood
+    bool wrongSym = not (str.contains(str.upper(syminfo.ticker), "XAU") or str.contains(str.upper(syminfo.ticker), "GOLD"))
+    string symWarn = wrongSym ? (useSimple ? "WRONG CHART — use OANDA:XAUUSD" : "Not gold ticker") : ""
     string adrTxt = na(rangeUsed) ? "-" : str.tostring(rangeUsed * 100, "#") + "% ($" + str.tostring(cdH - cdL, "#.#") + " / $" + str.tostring(adrD, "#.#") + ")" + (adrSpent ? (useSimple ? " — day mostly done" : " spent") : "")
     color adrCol = na(rangeUsed) ? color.gray : adrSpent ? tblBad : rangeUsed >= 0.7 * adrCap ? color.orange : tblGood
 
@@ -1876,6 +1881,18 @@ if showTable and barstate.islast
     string buyBlock = standAside ? stayWhy : inNews ? (useSimple ? "news — wait" : "news") : inDeadHrs ? (useSimple ? "slow hour — wait" : "dead") : useSessFilter and not sessLive ? (useSimple ? "quiet time" : "session") : sbOnly and not inSB ? (useSimple ? "wait best hour 10-11" : "SB only") : requireSBModel and inSB and not sbModelLongOK ? (useSimple ? "need low sweep first" : "SB path") : not kzSlotOK ? (useSimple ? "already traded this session" : "KZ used") : usePremDisc and inPremium and not inDiscount ? (useSimple ? "expensive = sells only" : "premium") : biasOn and not biasUp4h ? (useSimple ? "4H blocks buys" : "4H veto") : requireDailyBias and not dailyLongOK ? (useSimple ? "not a BUY day" : "daily bias") : requireJudasPath and inLondon and not judasLongOK ? (useSimple ? "need fake-DOWN first" : "Judas") : pendDir == -1 ? (useSimple ? "SELL already ready" : "short armed") : useHTFDraw and requireDraw and na(drawBSL) ? (useSimple ? "no up target" : "no draw") : aPlusMode and not aPlusLong ? (useSimple ? "not top quality yet" : "A+") : ""
     string sellBlock = standAside ? stayWhy : inNews ? (useSimple ? "news — wait" : "news") : inDeadHrs ? (useSimple ? "slow hour — wait" : "dead") : useSessFilter and not sessLive ? (useSimple ? "quiet time" : "session") : sbOnly and not inSB ? (useSimple ? "wait best hour 10-11" : "SB only") : requireSBModel and inSB and not sbModelShortOK ? (useSimple ? "need high sweep first" : "SB path") : not kzSlotOK ? (useSimple ? "already traded this session" : "KZ used") : usePremDisc and inDiscount and not inPremium ? (useSimple ? "cheap = buys only" : "discount") : biasOn and not biasDn4h ? (useSimple ? "4H blocks sells" : "4H veto") : requireDailyBias and not dailyShortOK ? (useSimple ? "not a SELL day" : "daily bias") : requireJudasPath and inLondon and not judasShortOK ? (useSimple ? "need fake-UP first" : "Judas") : pendDir == 1 ? (useSimple ? "BUY already ready" : "long armed") : useHTFDraw and requireDraw and na(drawSSL) ? (useSimple ? "no down target" : "no draw") : aPlusMode and not aPlusShort ? (useSimple ? "not top quality yet" : "A+") : ""
 
+    // ── Research story (kept even when GATE blocks execution — top-desk habit) ──
+    string researchSide = buyPts >= 5 and buyPts >= sellPts ? "BUY" : sellPts >= 5 and sellPts > buyPts ? "SELL" : "NONE"
+    bool htfConflict = (researchSide == "BUY" and biasDn4h) or (researchSide == "SELL" and biasUp4h)
+    bool dayUnlocked = useDailyBias and lockedBias == 0 and leanNow == 0
+    int edgePts = researchSide == "BUY" ? buyPts : researchSide == "SELL" ? sellPts : math.max(buyPts, sellPts)
+    string edgeRaw = edgePts >= 12 ? "A+" : edgePts >= 8 ? "A" : edgePts >= 5 ? "B" : "C"
+    // HTF conflict or unlocked day side = one grade lower (desk risk cut)
+    string edgeGrade = edgeRaw == "C" ? "C" : htfConflict or dayUnlocked ? (edgeRaw == "A+" ? "A" : edgeRaw == "A" ? "B" : "C") : edgeRaw
+    string conflictTxt = htfConflict ? (researchSide == "BUY" ? (useSimple ? "vs 4H down" : "vs HTF") : (useSimple ? "vs 4H up" : "vs HTF")) : dayUnlocked ? (useSimple ? "day side unlocked" : "no day lock") : (useSimple ? "aligned" : "ok")
+    string edgeTxt = researchSide == "NONE" ? (useSimple ? "No clear story yet · Edge C" : "Flat C") : (useSimple ? researchSide + " story · Edge " + edgeGrade + " (" + str.tostring(buyPts) + "vs" + str.tostring(sellPts) + ") · " + conflictTxt : researchSide + " " + edgeGrade)
+    color edgeCol = researchSide == "NONE" ? color.gray : htfConflict or dayUnlocked ? color.orange : researchSide == "BUY" ? tblGood : tblBad
+
     string buyNote = not buyHardNo and biasDn4h and buyPts >= 5 and (pureLiq or not biasOn) ? (useSimple ? " (4H down ignored in pure)" : " (vs 4H)") : ""
     string sellNote = not sellHardNo and biasUp4h and sellPts >= 5 and (pureLiq or not biasOn) ? (useSimple ? " (4H up ignored in pure)" : " (vs 4H)") : ""
 
@@ -1887,8 +1904,9 @@ if showTable and barstate.islast
         blkL := useSimple ? (waitEntry > 0 ? "GO BUY — dip into zone then enter" : pendMSS ? "BUY ready — wait pullback into zone" : "BUY ready — need trend flip UP") : "LONG pending"
         buyDecCol := waitEntry > 0 ? tblGood : color.orange
     else if buyHardNo
-        blkL := useSimple ? "NO BUY — " + buyBlock : "Blocked: " + buyBlock
-        buyDecCol := tblBad
+        // Keep research visible when gated (quiet/news) — do not hide the story
+        blkL := useSimple ? (researchSide == "BUY" ? "NO TRADE now — " + buyBlock + " · RESEARCH BUY Edge " + edgeGrade : "NO BUY — " + buyBlock) : "Blocked: " + buyBlock
+        buyDecCol := researchSide == "BUY" ? color.orange : tblBad
     else if buyPts >= 8
         blkL := useSimple ? "YES lean BUY — " + buyWhy + "· fake below then flip" + buyNote : "LEAN BUY " + str.tostring(buyPts)
         buyDecCol := tblGood
@@ -1903,8 +1921,8 @@ if showTable and barstate.islast
         blkS := useSimple ? (waitEntry > 0 ? "GO SELL — rise into zone then enter" : pendMSS ? "SELL ready — wait bounce into zone" : "SELL ready — need trend flip DOWN") : "SHORT pending"
         sellDecCol := waitEntry > 0 ? tblBad : color.orange
     else if sellHardNo
-        blkS := useSimple ? "NO SELL — " + sellBlock : "Blocked: " + sellBlock
-        sellDecCol := tblBad
+        blkS := useSimple ? (researchSide == "SELL" ? "NO TRADE now — " + sellBlock + " · RESEARCH SELL Edge " + edgeGrade : "NO SELL — " + sellBlock) : "Blocked: " + sellBlock
+        sellDecCol := researchSide == "SELL" ? color.orange : tblBad
     else if sellPts >= 8
         blkS := useSimple ? "YES lean SELL — " + sellWhy + "· fake above then flip" + sellNote : "LEAN SELL " + str.tostring(sellPts)
         sellDecCol := tblBad
@@ -1918,7 +1936,7 @@ if showTable and barstate.islast
     bool leanBuy  = not buyHardNo and (pendDir == 1 or (buyPts >= sellPts and buyPts >= 5))
     bool leanSell = not sellHardNo and (pendDir == -1 or (sellPts > buyPts and sellPts >= 5))
     string sidePick = pendDir == 1 ? "BUY" : pendDir == -1 ? "SELL" : leanBuy and not leanSell ? "BUY" : leanSell and not leanBuy ? "SELL" : leanBuy and leanSell ? (buyPts >= sellPts ? "BUY" : "SELL") : "NONE"
-    string confList = sidePick == "BUY" ? buyWhy : sidePick == "SELL" ? sellWhy : ""
+    string confList = sidePick == "BUY" ? buyWhy : sidePick == "SELL" ? sellWhy : researchSide == "BUY" ? buyWhy : researchSide == "SELL" ? sellWhy : ""
 
     string actTxt = standAside ? "DO NOTHING: " + stayWhy :
          inNews ? "DO NOTHING: news window" :
@@ -1928,24 +1946,30 @@ if showTable and barstate.islast
          pendDir == -1 and not pendMSS ? "SELL PATH: wait trend flip DOWN (" + pendPool + ")" :
          sidePick == "BUY" ? "FOCUS BUY — " + confList + "· fake BELOW → flip → enter pullback" :
          sidePick == "SELL" ? "FOCUS SELL — " + confList + "· fake ABOVE → flip → enter pullback" :
+         // Gated but research story alive = prepare, do not chase
+         hardBlockAll and researchSide == "BUY" ? "RESEARCH BUY — " + confList + "· Edge " + edgeGrade + " · wait London/NY then fake-below → flip" :
+         hardBlockAll and researchSide == "SELL" ? "RESEARCH SELL — " + confList + "· Edge " + edgeGrade + " · wait London/NY then fake-above → flip" :
+         researchSide == "BUY" and htfConflict ? "CAUTION BUY story vs 4H — only take if fake-down + flip + SMT agree" :
+         researchSide == "SELL" and htfConflict ? "CAUTION SELL story vs 4H — only take if fake-up + flip + SMT agree" :
          amdPhase == "ACC" ? "WAIT: range building — let fake move print first" :
-         useSessFilter and not sessLive ? "WAIT: outside trading hours" :
+         useSessFilter and not sessLive ? "WAIT: outside hours — build levels, no chase" :
          "WAIT: need clearer BUY or SELL clues"
-    color actCol = standAside or inNews ? tblBad : waitEntry > 0 and pendDir == 1 ? tblGood : waitEntry > 0 and pendDir == -1 ? tblBad : sidePick == "BUY" or pendDir == 1 ? tblGood : sidePick == "SELL" or pendDir == -1 ? tblBad : color.orange
+    color actCol = standAside or inNews ? tblBad : waitEntry > 0 and pendDir == 1 ? tblGood : waitEntry > 0 and pendDir == -1 ? tblBad : sidePick == "BUY" or pendDir == 1 ? tblGood : sidePick == "SELL" or pendDir == -1 ? tblBad : researchSide != "NONE" ? color.orange : color.orange
 
-    string hdrStatus = standAside or inNews ? (useSimple ? "DO NOT TRADE" : "STAND ASIDE") : pendDir == 1 and waitEntry > 0 ? "GO BUY" : pendDir == -1 and waitEntry > 0 ? "GO SELL" : pendDir == 1 ? "BUY ARMED" : pendDir == -1 ? "SELL ARMED" : sidePick == "BUY" ? (useSimple ? "LEAN BUY" : "BUY") : sidePick == "SELL" ? (useSimple ? "LEAN SELL" : "SELL") : (useSimple ? "WAITING" : "SCAN")
-    color hdrBg = standAside or inNews ? color.red : sidePick == "BUY" or pendDir == 1 ? color.rgb(21, 128, 61) : sidePick == "SELL" or pendDir == -1 ? color.rgb(185, 28, 28) : color.rgb(71, 85, 105)
+    // Header: execution first, else research story (never blank WAITING when story exists)
+    string hdrStatus = standAside or inNews ? (useSimple ? "DO NOT TRADE" : "STAND ASIDE") : pendDir == 1 and waitEntry > 0 ? "GO BUY" : pendDir == -1 and waitEntry > 0 ? "GO SELL" : pendDir == 1 ? "BUY ARMED" : pendDir == -1 ? "SELL ARMED" : sidePick == "BUY" ? (useSimple ? "LEAN BUY" : "BUY") : sidePick == "SELL" ? (useSimple ? "LEAN SELL" : "SELL") : hardBlockAll and researchSide == "BUY" ? (useSimple ? "WAIT · BUY story" : "RES BUY") : hardBlockAll and researchSide == "SELL" ? (useSimple ? "WAIT · SELL story" : "RES SELL") : researchSide == "BUY" ? (useSimple ? "RESEARCH BUY" : "BUY?") : researchSide == "SELL" ? (useSimple ? "RESEARCH SELL" : "SELL?") : (useSimple ? "WAITING" : "SCAN")
+    color hdrBg = standAside or inNews ? color.red : sidePick == "BUY" or pendDir == 1 ? color.rgb(21, 128, 61) : sidePick == "SELL" or pendDir == -1 ? color.rgb(185, 28, 28) : researchSide == "BUY" ? color.rgb(21, 101, 192) : researchSide == "SELL" ? color.rgb(180, 83, 9) : color.rgb(71, 85, 105)
 
     color dailyCol = not useDailyBias ? color.gray : dailyBuyLean ? tblGood : dailySellLean ? tblBad : color.orange
     color judasCol = not useJudasWin ? color.gray : inJudasWin and not (judasBuyPath or judasSellPath) ? color.orange : judasBuyPath ? tblGood : judasSellPath ? tblBad : color.gray
     color sbCol = not sbPlaybook ? color.gray : inSB and (sbLoSwept or sbHiSwept) ? tblGood : inSB ? color.orange : tblMute
 
     // ═══════════ LAYOUT (read top → bottom) ═══════════
-    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.3.1", text_color = color.white, bgcolor = color.navy, text_size = size.small)
+    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.4", text_color = color.white, bgcolor = color.navy, text_size = size.small)
     table.cell(t, 1, 0, hdrStatus, text_color = color.white, bgcolor = hdrBg, text_size = size.small)
 
     f_tblSec(t, 1, useSimple ? "1) GATE - can I trade now?" : "1) GATE")
-    f_tblRow(t, 2, useSimple ? "News / slow hours" : "News/Dead", newsTxt + " | " + deadTxt, tblMute, inNews or inDeadHrs ? tblBad : newsCol)
+    f_tblRow(t, 2, useSimple ? "News / slow hours" : "News/Dead", (wrongSym ? symWarn + " | " : "") + newsTxt + " | " + deadTxt, tblMute, wrongSym or inNews or inDeadHrs ? tblBad : newsCol)
     f_tblRow(t, 3, useSimple ? "Time of day" : "Session", sessTxt + (useTimeConf and timeConf ? (useSimple ? " | :00/:30 OK" : " | time OK") : ""), tblMute, sessCol)
     f_tblRow(t, 4, useSimple ? "How much of day used" : "ADR used", adrTxt, tblMute, adrCol)
 
@@ -1976,14 +2000,14 @@ if showTable and barstate.islast
     table.cell(t, 1, 25, actTxt, text_color = actCol, text_size = size.small)
 
     f_tblSec(t, 26, useSimple ? "6) LOG - score and mode" : "6) LOG")
-    f_tblRow(t, 27, useSimple ? "Ideas today / score" : "Signals/pts", str.tostring(signalsToday) + " / " + str.tostring(maxSigDay) + " | pts " + str.tostring(buyPts, "#") + "/" + str.tostring(sellPts, "#") + " | " + gradeL + "/" + gradeS, tblMute, tblKey)
-    f_tblRow(t, 28, useSimple ? "Last trade idea" : "Last signal", lastTxt, tblMute, tblKey)
+    f_tblRow(t, 27, useSimple ? "Research edge (desk)" : "Edge", edgeTxt, tblMute, edgeCol)
+    f_tblRow(t, 28, useSimple ? "Ideas today / last" : "Signals", str.tostring(signalsToday) + " / " + str.tostring(maxSigDay) + " · " + (lastTag == "" ? (useSimple ? "no idea yet" : "-") : lastTag), tblMute, tblKey)
     table.cell(t, 0, 29, useSimple ? "How entries work" : "Mode", text_color = tblMute, text_size = size.tiny)
-    table.cell(t, 1, 29, useSimple ? "Sweep → flip → enter pullback | v6.3.1" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.3.1", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
+    table.cell(t, 1, 29, useSimple ? "Research → wait gate → sweep → flip → pullback | v6.4" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.4", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 30, useSimple ? "Tools ON" : "Edges", text_color = tblMute, text_size = size.tiny)
     table.cell(t, 1, 30, useSimple ? ((useDailyBias ? "DaySide " : "") + (useJudasWin ? "FakeMove " : "") + (useDispGate ? "StrongPush " : "") + (sbPlaybook ? "BestHour " : "") + (useIPDA ? "20/40Day " : "") + (useSmtES ? "Stocks " : "") + (useDeadHrs ? "SlowHrs " : "") + (useHTFDraw ? "TP-lines " : "") + (useAMD ? "DayStory " : "") + (aPlusMode ? "TopOnly" : "")) : ((useDailyBias ? "DayBias " : "") + (useJudasWin ? "Judas " : "") + (useDispGate ? "DispFVG " : "") + (sbPlaybook ? "SB " : "") + (useIPDA ? "IPDA " : "") + (useSmtES ? "ES " : "") + (useDeadHrs ? "DeadHrs " : "") + (useHTFDraw ? "Draw " : "") + (useAMD ? "AMD " : "") + (aPlusMode ? "A+" : "")), text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
-    table.cell(t, 0, 31, useSimple ? "Read table order" : "Flow", text_color = tblMute, text_size = size.tiny)
-    table.cell(t, 1, 31, useSimple ? "Gate -> Bias -> Levels -> Confirm -> Decision" : "G->B->L->C->D", text_color = color.gray, text_size = size.tiny)
+    table.cell(t, 0, 31, useSimple ? "Desk rule" : "Flow", text_color = tblMute, text_size = size.tiny)
+    table.cell(t, 1, 31, useSimple ? "Gate kills chase · Bias picks side · Confirm before entry · Edge A/A+ only vs 4H" : "G->B->L->C->D", text_color = color.gray, text_size = size.tiny)
 
 // Elite visuals: draw rails + AMD tint
 var line drawUpLn = na

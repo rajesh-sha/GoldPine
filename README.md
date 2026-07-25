@@ -1,29 +1,27 @@
-# GoldPine — Gold Liquidity Sweep PRO v6.3.1
+# GoldPine — Gold Liquidity Sweep PRO v6.4
 
-Liquidity / price-action signal indicator for **OANDA:XAUUSD** (TradingView Pine v6).
+Desk-style research + execution indicator for **OANDA:XAUUSD** (TradingView Pine v6).
 
-## Paste into TradingView (use this file)
+## Paste this
 
-https://raw.githubusercontent.com/rajesh-sha/GoldPine/cursor/gold-liq-sweep-pro-v3-09e0/GOLD_v6.3.1_PASTE_THIS.txt
+https://raw.githubusercontent.com/rajesh-sha/GoldPine/cursor/gold-liq-sweep-pro-v3-09e0/GOLD_v6.4_PASTE_THIS.txt
 
-1. Open the link → Select all → Copy  
-2. Pine Editor → delete old code → Paste → **Save**  
-3. Remove old indicator from chart → **Add to chart** again  
-4. Confirm title shows **v6.3.1** (not v6.3)
+1. Open → Select all → Copy  
+2. Pine Editor → replace all → Save  
+3. Remove old indicator → Add to chart  
+4. Confirm title **v6.4**
 
-If the table still says `Big 20/40 day highs/lows` or `Near HIGH → SELL`, you are still on the old saved script.
+## Desk read order
 
-## Chart setup
+Gate → Bias → Levels → Confirm → Decision
 
-1. Symbol: `OANDA:XAUUSD`  
-2. Timeframe: **1 minute**  
-3. Beginner mode: **ON**
+- **Gate closed** does not erase research: header shows `WAIT · BUY/SELL story`
+- **Research edge** grades the story (A+/A/B/C) and flags `vs 4H` conflicts
+- **TP targets** ignore noise levels inside 0.75 ATR
 
-## Files
+## Chart
 
-- `GOLD_v6.3.1_PASTE_THIS.txt` — use this paste  
-- `Gold Liquidity Sweep PRO.txt` — same script  
-- `indicators/Gold_Liquidity_Sweep_PRO_v3_Signals.pine` — same script  
+`OANDA:XAUUSD` · **1 minute** · Beginner mode ON
 
 ## Disclaimer
 
