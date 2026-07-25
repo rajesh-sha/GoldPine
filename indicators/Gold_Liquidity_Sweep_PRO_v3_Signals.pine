@@ -7,7 +7,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=6
 indicator("Gold Liquidity Sweep PRO v6.5.1 — Signals",
-     shorttitle = "GOLD LiqSweep PRO v6.5.1.1",
+     shorttitle = "GOLD LiqSweep PRO v6.5.1",
      overlay = true,
      max_lines_count = 500,
      max_labels_count = 500,
