@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Gold Liquidity Sweep PRO v4.2 — INSTITUTIONAL LIQUIDITY SIGNALS [Rajesh Sha]
+// Gold Liquidity Sweep PRO v4.3 — INSTITUTIONAL LIQUIDITY SIGNALS [Rajesh Sha]
 // COMPILE-FIXED: clearPend reset; const plotshape text.
-// UX: KEEP all level labels (Day/Asia/EQ/RND/Week) — tidy overlap only, never hide.
+// UX: KEEP all level labels + KEEP StochRSI extreme lines (yellow/tired meter).
 //
 // Pure liquidity / price-action stack (what desks actually trade):
 //   Pool → Inducement (internal) → External sweep → CISD/MSS
@@ -12,8 +12,8 @@
 // USE: OANDA:XAUUSD, 1-minute. HTF non-repainting ([1]+lookahead_on).
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=6
-indicator("Gold Liquidity Sweep PRO v4.2 — Signals",
-     shorttitle = "GOLD LiqSweep PRO v4.2",
+indicator("Gold Liquidity Sweep PRO v4.3 — Signals",
+     shorttitle = "GOLD LiqSweep PRO v4.3",
      overlay = true,
      max_lines_count = 500,
      max_labels_count = 500,
@@ -155,7 +155,7 @@ yNudgeATR      = input.float(0.35, "Vertical nudge when overlapping (ATR x)", mi
 collideTolATR  = input.float(0.55, "Treat as overlapping if within ATR x", minval = 0.15, step = 0.05, group = grpVis)
 maxBump        = input.int(14, "Max stagger steps per cluster", minval = 3, maxval = 30, group = grpVis)
 sigTZ          = input.string("Australia/Melbourne", "Signal time zone (table + labels)", group = grpVis)
-showStochLines = input.bool(false, "Draw StochRSI extreme lines", group = grpVis)
+showStochLines = input.bool(true, "Draw StochRSI extreme lines (tired meter)", group = grpVis, tooltip = "ON: keeps the yellow/green/red StochRSI extreme rails on the chart (previous version). Does NOT require the Stoch filter to be ON.")
 stochLineOff   = input.float(1.0, "StochRSI line distance (ATR x)", minval = 0.1, step = 0.1, group = grpVis)
 showTable      = input.bool(true, "Show status table", group = grpVis)
 showBG         = input.bool(true, "Shade kill zones", group = grpVis)
@@ -1194,16 +1194,17 @@ plotshape(showBG and sessEnd,     "Session end",   text = "CLOSED\nno trading", 
 
 plot(biasOn ? biasEma : na, "Bias EMA", color = color.new(color.gray, 40))
 
+// StochRSI "tired meter" rails on price (KEEP — previous yellow/orange extremes)
 stOff = stochLineOff * atrVal
-plot(showStochLines and k5  <= stochOS ? low  - stOff       : na, "5m StochRSI oversold",    color = color.green,  style = plot.style_linebr, linewidth = 2)
-plot(showStochLines and k15 <= stochOS ? low  - stOff * 1.8 : na, "15m StochRSI oversold",   color = color.teal,   style = plot.style_linebr, linewidth = 2)
+plot(showStochLines and k5  <= stochOS ? low  - stOff       : na, "5m StochRSI oversold",    color = color.lime,   style = plot.style_linebr, linewidth = 2)
+plot(showStochLines and k15 <= stochOS ? low  - stOff * 1.8 : na, "15m StochRSI oversold",   color = color.teal,   style = plot.style_linebr, linewidth = 3)
 plot(showStochLines and k5  >= stochOB ? high + stOff       : na, "5m StochRSI overbought",  color = color.red,    style = plot.style_linebr, linewidth = 2)
-plot(showStochLines and k15 >= stochOB ? high + stOff * 1.8 : na, "15m StochRSI overbought", color = color.orange, style = plot.style_linebr, linewidth = 2)
+plot(showStochLines and k15 >= stochOB ? high + stOff * 1.8 : na, "15m StochRSI overbought", color = color.yellow, style = plot.style_linebr, linewidth = 3)
 if showStochLines
     if k15 <= stochOS and not (k15[1] <= stochOS)
-        label.new(bar_index, low - stOff * 1.8, useSimple ? "Sellers tired 15m (BUY side ready)" : "15m OS", style = label.style_label_upper_right, color = color.new(color.teal, 75), textcolor = color.teal, size = size.tiny)
+        label.new(bar_index, low - stOff * 1.8, useSimple ? "Sellers tired 15m (BUY side ready)" : "15m OS", style = label.style_label_upper_right, color = f_lblBg(color.teal), textcolor = f_lblTx(color.teal), size = size.tiny)
     if k15 >= stochOB and not (k15[1] >= stochOB)
-        label.new(bar_index, high + stOff * 1.8, useSimple ? "Buyers tired 15m (SELL side ready)" : "15m OB", style = label.style_label_lower_right, color = color.new(color.orange, 75), textcolor = color.orange, size = size.tiny)
+        label.new(bar_index, high + stOff * 1.8, useSimple ? "Buyers tired 15m (SELL side ready)" : "15m OB", style = label.style_label_lower_right, color = f_lblBg(color.yellow), textcolor = hiContrast ? color.black : color.yellow, size = size.tiny)
 
 // ═══════════════════════════ SMART LABEL PINNING (anti-overlap UX) ═══════════════════════════
 // Sort-free cluster bump: each new label near an existing one gets a higher
@@ -1298,8 +1299,9 @@ if showTable and barstate.islast
     color  dxyCol  = not useDXY ? tblMute : dxyC < dxyE ? color.lime : color.rgb(248, 113, 113)
     string sessTxt = inSB ? (useSimple ? "BEST hour of the day" : "Silver Bullet") : inLondon ? (useSimple ? "London open - good time" : "London KZ") : inNY ? (useSimple ? "New York open - good time" : "NY KZ") : (useSimple ? "Quiet hours - no trading" : "Outside")
     color  sessCol = inSB or inLondon or inNY ? color.lime : color.rgb(248, 113, 113)
-    string stochTxt = not useStoch ? "Off" : str.tostring(k5, "#.#") + " / " + str.tostring(k15, "#.#")
-    color  stochCol = not useStoch ? tblMute : k5 <= stochOS and k15 <= stochOS ? color.lime : k5 >= stochOB and k15 >= stochOB ? color.rgb(248, 113, 113) : tblKey
+    // Always show StochRSI values in table (visual meter), even if filter veto is OFF
+    string stochTxt = str.tostring(k5, "#.#") + " / " + str.tostring(k15, "#.#") + (useStoch ? "" : (useSimple ? " (filter off)" : " (viz)"))
+    color  stochCol = k5 <= stochOS and k15 <= stochOS ? color.lime : k5 >= stochOB and k15 >= stochOB ? color.yellow : tblKey
     string lastTxt = lastTag == "" ? "-" : lastTag + " @ " + str.tostring(lastEntry, format.mintick) + "\n" + str.format_time(lastSigTime, "dd MMM yyyy HH:mm", sigTZ) + "\nSL " + str.tostring(lastSL, format.mintick) + " | TP1 " + str.tostring(lastTP1, format.mintick) + "\nTP2 " + str.tostring(lastTP2, format.mintick)
     string dayLiveTxt  = not useCD ? "Off" : str.tostring(cdH, format.mintick) + " / " + str.tostring(cdL, format.mintick) + (na(lvlCDH.price) or na(lvlCDL.price) ? " (arming)" : "")
     string weekLiveTxt = not useCW ? "Off" : str.tostring(cwH, format.mintick) + " / " + str.tostring(cwL, format.mintick) + (na(lvlCWH.price) or na(lvlCWL.price) ? " (arming)" : "")
@@ -1316,7 +1318,7 @@ if showTable and barstate.islast
          (londonLowSweptNY or londonHighSweptNY ? (useSimple ? (asiaLowSweptLondon or asiaHighSweptLondon ? " · " : "") + "NY swept London" : (asiaLowSweptLondon or asiaHighSweptLondon ? " · " : "") + "NY>London") : "")
     hierTxt := hierTxt == "" ? (useSimple ? "No session hunt yet" : "None") : hierTxt
 
-    table.cell(t, 0, 0, "GOLD LiqSweep PRO v4.2", text_color = color.white, bgcolor = color.rgb(30, 58, 138), text_size = size.small)
+    table.cell(t, 0, 0, "GOLD LiqSweep PRO v4.3", text_color = color.white, bgcolor = color.rgb(30, 58, 138), text_size = size.small)
     table.cell(t, 1, 0, standAside ? (useSimple ? "DO NOT TRADE" : "STAND ASIDE") : (useSimple ? "WATCHING" : "SCANNING"), text_color = color.white, bgcolor = standAside ? color.rgb(185, 28, 28) : color.rgb(21, 128, 61), text_size = size.small)
     table.cell(t, 0, 1, useSimple ? "Big trend (4H)" : "Bias", text_color = tblMute, text_size = size.small)
     table.cell(t, 1, 1, biasTxt, text_color = biasCol, text_size = size.small)
