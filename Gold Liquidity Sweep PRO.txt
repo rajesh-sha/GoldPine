@@ -631,7 +631,7 @@ f_addRound(px, isHigh) =>
     L.ln := line.new(bar_index, px, bar_index + 1, px, extend = extend.right, color = color.new(col, 35), width = 1, style = line.style_dotted)
     // Keep previous RND wording — never remove; tidy via pin stagger only
     if showRoundLbs
-        string tip = useSimple ? (isHigh ? " round high | fake UP = SELL" : " round low | fake DOWN = BUY") : " [" + L.pool + "]"
+        string tip = useSimple ? (isHigh ? " round HIGH — fake UP = SELL / TP up" : " round LOW — fake DOWN = BUY / TP down") : " [" + L.pool + "]"
         L.lb := label.new(bar_index, px, nm + tip, style = label.style_label_right, color = f_lblBg(col), textcolor = f_lblTx(col), size = size.small)
     array.push(roundLevels, L)
 
@@ -661,7 +661,7 @@ f_addDyn(nm, kind, px, col) =>
     L.tier  := "INT"  // EQH/EQL = internal inducement liquidity
     L.ln    := line.new(bar_index - pivLen, px, bar_index, px, extend = extend.right, color = col, width = 1, style = line.style_dashed)
     // Keep previous EQ wording
-    string dtip = not useSimple ? nm + " [" + L.pool + "/INT]" : nm + (kind == "high" ? " double top | fake break UP = SELL" : " double bottom | fake break DOWN = BUY")
+    string dtip = not useSimple ? nm + " [" + L.pool + "/INT]" : nm + (kind == "high" ? " double top — fake UP = SELL" : " double bottom — fake DOWN = BUY")
     L.lb := label.new(bar_index, px, dtip, style = label.style_label_right, color = f_lblBg(col), textcolor = f_lblTx(col), size = size.small)
     array.push(dynLevels, L)
 
