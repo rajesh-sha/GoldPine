@@ -1,14 +1,14 @@
-# GoldPine — Gold Liquidity Sweep PRO v6.6
-
-Smart label manager for **OANDA:XAUUSD** (TradingView Pine v6).
+# GoldPine — Gold Liquidity Sweep PRO v6.7
 
 ## Paste
 
-https://raw.githubusercontent.com/rajesh-sha/GoldPine/cursor/gold-liq-sweep-pro-v3-09e0/GOLD_v6.6_PASTE_THIS.txt
+https://raw.githubusercontent.com/rajesh-sha/GoldPine/cursor/gold-liq-sweep-pro-v3-09e0/GOLD_FINAL_PASTE_THIS.txt
 
-## Anti-overlap
+## New in v6.7
 
-Cash-out merges into the nearest open / RND / level label (`· BUY↑` / `· SELL↓`).  
-No second stacked tag on the same price. Leftover cash-out tags go far right.
+LONG/SHORT **risk-reward boxes** on signals:
+- Green = profit / TP
+- Pink = risk / SL
+- Shows R:R
 
-Confirm title **v6.6** after reload.
+Chart: `OANDA:XAUUSD` · 1m · Beginner mode ON
