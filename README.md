@@ -1,17 +1,27 @@
-# GoldPine — Gold Liquidity Sweep PRO v6.4.2
+# GoldPine — Gold Liquidity Sweep PRO v6.5 FINAL
 
-Desk-style research + execution indicator for **OANDA:XAUUSD** (TradingView Pine v6).
+Plain-English liquidity desk indicator for **OANDA:XAUUSD** (TradingView Pine v6).
 
-## Paste this
+## Paste this (final)
 
-https://raw.githubusercontent.com/rajesh-sha/GoldPine/cursor/gold-liq-sweep-pro-v3-09e0/GOLD_v6.4.2_PASTE_THIS.txt
+https://raw.githubusercontent.com/rajesh-sha/GoldPine/cursor/gold-liq-sweep-pro-v3-09e0/GOLD_FINAL_PASTE_THIS.txt
 
-## New in v6.4.2
+1. Open → Select all → Copy  
+2. Pine Editor → replace all → Save  
+3. Remove old indicator → Add to chart  
+4. Confirm title **v6.5**
 
-Table row **NY midnight open** shows:
-- price
-- date (New York)
-- whether price is now above (SELL lean) or below (BUY lean)
+## Plain labels
+
+| Label | Meaning |
+|---|---|
+| TODAY OPEN | Day started here · price often returns · cash-out (not entry) |
+| WEEK OPEN | Week started here · cash-out (not entry) |
+| NY MIDNIGHT OPEN | Above = SELL day · Below = BUY day |
+| BUY cash-out ↑ | Close a BUY here |
+| SELL cash-out ↓ | Close a SELL here |
+
+Table also lists **NY midnight / Today / Week open** with dates.
 
 ## Chart
 
