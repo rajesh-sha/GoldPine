@@ -1,13 +1,13 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Gold Liquidity Sweep PRO v6.6 — SMART LABEL MANAGER [Rajesh Sha]
-// One label per price shelf: cash-out merges into nearest open/RND/level; no stacked tags.
+// Gold Liquidity Sweep PRO v6.6.1 — SMART LABEL MANAGER [Rajesh Sha]
+// Clearer merged labels: entry tip + cash-out tip (no duplicate price, no BUY/SELL clash).
 // COMPILE-FIXED: clearPend; const plotshape; global table helpers (CE10156).
 //
 // USE: OANDA:XAUUSD, 1-minute. HTF non-repainting ([1]+lookahead_on).
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=6
-indicator("Gold Liquidity Sweep PRO v6.6 — Signals",
-     shorttitle = "GOLD LiqSweep PRO v6.6",
+indicator("Gold Liquidity Sweep PRO v6.6.1 — Signals",
+     shorttitle = "GOLD LiqSweep PRO v6.6.1",
      overlay = true,
      max_lines_count = 500,
      max_labels_count = 500,
@@ -1673,12 +1673,15 @@ f_nearPx(float a, float b) =>
 
 // Rebuild a level's short base text (avoids appending forever)
 f_levelBaseTxt(LiqLevel L) =>
-    useSimple ? (L.name + " " + str.tostring(L.price, format.mintick) + (L.kind == "high" ? " | up=SELL" : " | down=BUY")) : (L.name + " [" + L.pool + "] " + str.tostring(L.price, format.mintick))
+    // RND name already includes the number — don't print price twice
+    bool nameHasPx = str.contains(L.name, str.tostring(math.round(L.price)))
+    string pxBit = nameHasPx ? "" : (" " + str.tostring(L.price, format.mintick))
+    useSimple ? (L.name + pxBit + (L.kind == "high" ? " | fake UP = look SELL" : " | fake DOWN = look BUY")) : (L.name + " [" + L.pool + "] " + str.tostring(L.price, format.mintick))
 
 // Try merge cash-out tag into the nearest existing label on that shelf. Returns true if merged.
 f_mergeCashTag(float cashPx, bool isBuy) =>
     bool merged = false
-    string tag = useSimple ? (isBuy ? " · BUY↑" : " · SELL↓") : (isBuy ? " · BSL" : " · SSL")
+    string tag = useSimple ? (isBuy ? " · also BUY cash-out" : " · also SELL cash-out") : (isBuy ? " · BSL" : " · SSL")
     float bestDist = 1e12
     label bestLb = na
     string bestBase = ""
@@ -1777,11 +1780,11 @@ if showEliteVis and barstate.islast
     if useHTFDraw and not na(drawBSL)
         drawUpLn := line.new(bar_index - 5, drawBSL, bar_index + cashLane, drawBSL, color = color.new(color.red, 40), width = 2, style = line.style_dashed)
         if not drawUpMerged
-            drawUpLb := label.new(bar_index + cashLane, drawBSL + atrVal * 1.2, useSimple ? "BUY↑ " + str.tostring(drawBSL, format.mintick) : "BSL " + str.tostring(drawBSL, format.mintick), style = label.style_label_left, color = f_lblBg(color.red), textcolor = f_lblTx(color.red), size = size.tiny)
+            drawUpLb := label.new(bar_index + cashLane, drawBSL + atrVal * 1.2, useSimple ? "BUY cash-out " + str.tostring(drawBSL, format.mintick) : "BSL " + str.tostring(drawBSL, format.mintick), style = label.style_label_left, color = f_lblBg(color.red), textcolor = f_lblTx(color.red), size = size.tiny)
     if useHTFDraw and not na(drawSSL)
         drawDnLn := line.new(bar_index - 5, drawSSL, bar_index + cashLane, drawSSL, color = color.new(color.green, 40), width = 2, style = line.style_dashed)
         if not drawDnMerged
-            drawDnLb := label.new(bar_index + cashLane, drawSSL - atrVal * 1.2, useSimple ? "SELL↓ " + str.tostring(drawSSL, format.mintick) : "SSL " + str.tostring(drawSSL, format.mintick), style = label.style_label_left, color = f_lblBg(color.green), textcolor = f_lblTx(color.green), size = size.tiny)
+            drawDnLb := label.new(bar_index + cashLane, drawSSL - atrVal * 1.2, useSimple ? "SELL cash-out " + str.tostring(drawSSL, format.mintick) : "SSL " + str.tostring(drawSSL, format.mintick), style = label.style_label_left, color = f_lblBg(color.green), textcolor = f_lblTx(color.green), size = size.tiny)
 
 // ═══════════════════════════ SMART LABEL PINNING (anti-overlap UX) ═══════════════════════════
 // Sort-free cluster bump: each new label near an existing one gets a higher
@@ -2126,7 +2129,7 @@ if showTable and barstate.islast
     color midMonCol = not useOpens or na(midOpen) ? color.gray : close < midOpen ? tblGood : close > midOpen ? tblBad : color.orange
 
     // ═══════════ LAYOUT (read top → bottom) ═══════════
-    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.6", text_color = color.white, bgcolor = color.navy, text_size = size.small)
+    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.6.1", text_color = color.white, bgcolor = color.navy, text_size = size.small)
     table.cell(t, 1, 0, hdrStatus, text_color = color.white, bgcolor = hdrBg, text_size = size.small)
 
     f_tblSec(t, 1, useSimple ? "1) GATE - can I trade now?" : "1) GATE")
@@ -2167,7 +2170,7 @@ if showTable and barstate.islast
     f_tblRow(t, 29, useSimple ? "Research edge (desk)" : "Edge", edgeTxt, tblMute, edgeCol)
     f_tblRow(t, 30, useSimple ? "Ideas today / last" : "Signals", str.tostring(signalsToday) + " / " + str.tostring(maxSigDay) + " · " + (lastTag == "" ? (useSimple ? "no idea yet" : "-") : lastTag), tblMute, tblKey)
     table.cell(t, 0, 31, useSimple ? "How entries work" : "Mode", text_color = tblMute, text_size = size.tiny)
-    table.cell(t, 1, 31, useSimple ? "Research → wait gate → sweep → flip → pullback | v6.6" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.6", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
+    table.cell(t, 1, 31, useSimple ? "Research → wait gate → sweep → flip → pullback | v6.6.1" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.6.1", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 32, useSimple ? "Tools ON" : "Edges", text_color = tblMute, text_size = size.tiny)
     table.cell(t, 1, 32, useSimple ? ((useDailyBias ? "DaySide " : "") + (useJudasWin ? "FakeMove " : "") + (useDispGate ? "StrongPush " : "") + (sbPlaybook ? "BestHour " : "") + (useIPDA ? "20/40Day " : "") + (useSmtES ? "Stocks " : "") + (useDeadHrs ? "SlowHrs " : "") + (useHTFDraw ? "TP-lines " : "") + (useAMD ? "DayStory " : "") + (aPlusMode ? "TopOnly" : "")) : ((useDailyBias ? "DayBias " : "") + (useJudasWin ? "Judas " : "") + (useDispGate ? "DispFVG " : "") + (sbPlaybook ? "SB " : "") + (useIPDA ? "IPDA " : "") + (useSmtES ? "ES " : "") + (useDeadHrs ? "DeadHrs " : "") + (useHTFDraw ? "Draw " : "") + (useAMD ? "AMD " : "") + (aPlusMode ? "A+" : "")), text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 33, useSimple ? "Desk rule" : "Flow", text_color = tblMute, text_size = size.tiny)
