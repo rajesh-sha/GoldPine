@@ -1,13 +1,13 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Gold Liquidity Sweep PRO v6.7.2 — CLEAN RR CARDS [Rajesh Sha]
-// TV-style long/short geometry, one mid R:R pill only — no Target/Stop/Amount clutter.
+// Gold Liquidity Sweep PRO v6.7.3 — SESSION CLOCKS [Rajesh Sha]
+// Session markers show Melb + NY times. Killzones still computed in America/New_York.
 // COMPILE-FIXED: clearPend; const plotshape; global table helpers (CE10156).
 //
 // USE: OANDA:XAUUSD, 1-minute. HTF non-repainting ([1]+lookahead_on).
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=6
-indicator("Gold Liquidity Sweep PRO v6.7.2 — Signals",
-     shorttitle = "GOLD LiqSweep PRO v6.7.2",
+indicator("Gold Liquidity Sweep PRO v6.7.3 — Signals",
+     shorttitle = "GOLD LiqSweep PRO v6.7.3",
      overlay = true,
      max_lines_count = 500,
      max_labels_count = 500,
@@ -145,14 +145,14 @@ stochOS       = input.float(10, "Oversold level (BUY)", minval = 1, maxval = 40,
 stochOB       = input.float(90, "Overbought level (SELL)", minval = 60, maxval = 99, group = grpStoch)
 stochLookback = input.int(15, "Exhaustion valid within last N chart bars", minval = 1, group = grpStoch)
 
-grpSess = "Sessions (America/New_York - DST aware)"
+grpSess = "Sessions (timed in New York — chart may show Melbourne)"
 useSessFilter = input.bool(true, "Signal only inside kill zones", group = grpSess)
 useLondonKZ = input.bool(true, "London Kill Zone", group = grpSess)
-londonKZ    = input.session("0200-0500", "London KZ (NY time)", group = grpSess)
+londonKZ    = input.session("0200-0500", "London KZ (NY time)", group = grpSess, tooltip = "Default 02:00-05:00 New York = 16:00-19:00 Melbourne (AEST / Jul). Script always uses NY clock, not chart timezone.")
 useNYKZ     = input.bool(true, "New York Kill Zone", group = grpSess)
-nyKZ        = input.session("0830-1100", "NY KZ (NY time)", group = grpSess)
+nyKZ        = input.session("0830-1100", "NY KZ (NY time)", group = grpSess, tooltip = "Default 08:30-11:00 New York = 22:30-01:00 Melbourne (AEST / Jul).")
 useSB       = input.bool(true, "Silver Bullet window", group = grpSess)
-sbKZ        = input.session("1000-1100", "Silver Bullet (NY time)", group = grpSess)
+sbKZ        = input.session("1000-1100", "Silver Bullet (NY time)", group = grpSess, tooltip = "Default 10:00-11:00 New York = 00:00-01:00 Melbourne (AEST / Jul).")
 
 grpRisk = "Trade Plan (shown on signals)"
 accountSize = input.float(10000, "Account size ($)", minval = 100, group = grpRisk)
@@ -1701,10 +1701,20 @@ londonStart = inLondon and not inLondon[1]
 nyStart     = inNY and not inNY[1]
 sbStart     = inSB and not inSB[1]
 sessEnd     = not (inLondon or inNY or inSB) and (inLondon[1] or inNY[1] or inSB[1])
-plotshape(showBG and londonStart, "London open",   text = "LONDON\nOK to trade",  style = shape.labeldown, location = location.top, color = color.blue,   textcolor = color.white, size = size.tiny)
-plotshape(showBG and nyStart,     "New York open", text = "NEW YORK\nOK to trade", style = shape.labeldown, location = location.top, color = color.purple, textcolor = color.white, size = size.tiny)
-plotshape(showBG and sbStart,     "Best hour",     text = "BEST HOUR\n10-11 NY",    style = shape.labeldown, location = location.top, color = color.green,  textcolor = color.white, size = size.tiny)
-plotshape(showBG and sessEnd,     "Session end",   text = "CLOSED\nwait next",     style = shape.labeldown, location = location.top, color = color.gray,   textcolor = color.white, size = size.tiny)
+// Dynamic labels (plotshape text cannot show Melb clock) — times in your sigTZ + NY
+if showBG and londonStart
+    label.new(bar_index, high, "LONDON OPEN — OK to trade
+Melb " + str.format_time(time, "HH:mm", sigTZ) + " · NY 02:00-05:00", style = label.style_label_down, color = color.blue, textcolor = color.white, size = size.tiny, yloc = yloc.abovebar)
+if showBG and nyStart
+    label.new(bar_index, high, "NEW YORK OPEN — OK to trade
+Melb " + str.format_time(time, "HH:mm", sigTZ) + " · NY 08:30-11:00", style = label.style_label_down, color = color.purple, textcolor = color.white, size = size.tiny, yloc = yloc.abovebar)
+if showBG and sbStart
+    label.new(bar_index, high, "BEST HOUR — OK to trade
+Melb " + str.format_time(time, "HH:mm", sigTZ) + " · NY 10:00-11:00", style = label.style_label_down, color = color.green, textcolor = color.white, size = size.tiny, yloc = yloc.abovebar)
+if showBG and sessEnd
+    string whichEnd = inLondon[1] ? "London" : inSB[1] ? "Best hour" : "New York"
+    label.new(bar_index, high, whichEnd + " CLOSED — wait next
+Melb " + str.format_time(time, "HH:mm", sigTZ), style = label.style_label_down, color = color.gray, textcolor = color.white, size = size.tiny, yloc = yloc.abovebar)
 
 plot(showBiasPlot and biasShow and not na(biasEma) ? biasEma : na, "4H Bias EMA", color = color.new(color.gray, 35), linewidth = 2)
 
@@ -1993,7 +2003,9 @@ if showTable and barstate.islast
     string biasTxt = not biasShow ? (useSimple ? "Hidden" : "Off") : biasDir + biasFilt
     color  biasCol = not biasShow or na(biasEma) ? color.gray : biasUp4h ? tblGood : biasDn4h ? tblBad : color.orange
 
-    string sessTxt = inSB ? (useSimple ? "Best hour (10-11 NY) — trade OK" : "Silver Bullet") : inLondon ? (useSimple ? "London open — trade OK" : "London KZ") : inNY ? (useSimple ? "New York open — trade OK" : "NY KZ") : (useSimple ? "Quiet time — do not trade" : "Outside")
+    string melbNow = str.format_time(time, "HH:mm", sigTZ)
+    string nyNow = str.format_time(time, "HH:mm", TZ_NY)
+    string sessTxt = inSB ? (useSimple ? "Best hour — trade OK · Melb " + melbNow + " (NY " + nyNow + " · window 10-11 NY)" : "Silver Bullet") : inLondon ? (useSimple ? "London — trade OK · Melb " + melbNow + " (NY " + nyNow + " · window 02-05 NY)" : "London KZ") : inNY ? (useSimple ? "New York — trade OK · Melb " + melbNow + " (NY " + nyNow + " · window 08:30-11 NY)" : "NY KZ") : (useSimple ? "Quiet — do not trade · Melb " + melbNow + " (NY " + nyNow + ")" : "Outside")
     color  sessCol = inSB or inLondon or inNY ? tblGood : tblBad
     string stochTxt = str.tostring(k5, "#.#") + " / " + str.tostring(k15, "#.#")
     color  stochCol = k5 <= stochOS and k15 <= stochOS ? tblGood : k5 >= stochOB and k15 >= stochOB ? color.orange : tblKey
@@ -2190,7 +2202,7 @@ if showTable and barstate.islast
     color midMonCol = not useOpens or na(midOpen) ? color.gray : close < midOpen ? tblGood : close > midOpen ? tblBad : color.orange
 
     // ═══════════ LAYOUT (read top → bottom) ═══════════
-    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.7.2", text_color = color.white, bgcolor = color.navy, text_size = size.small)
+    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.7.3", text_color = color.white, bgcolor = color.navy, text_size = size.small)
     table.cell(t, 1, 0, hdrStatus, text_color = color.white, bgcolor = hdrBg, text_size = size.small)
 
     f_tblSec(t, 1, useSimple ? "1) GATE - can I trade now?" : "1) GATE")
@@ -2231,7 +2243,7 @@ if showTable and barstate.islast
     f_tblRow(t, 29, useSimple ? "Research edge (desk)" : "Edge", edgeTxt, tblMute, edgeCol)
     f_tblRow(t, 30, useSimple ? "Ideas today / last" : "Signals", str.tostring(signalsToday) + " / " + str.tostring(maxSigDay) + " · " + (lastTag == "" ? (useSimple ? "no idea yet" : "-") : lastTag + (na(lastEntry) or na(lastSL) or na(lastTP1) ? "" : " · SL " + str.tostring(lastSL, format.mintick) + " · TP " + str.tostring(lastTP1, format.mintick) + " · " + str.tostring(math.abs(lastTP1 - lastEntry) / math.abs(lastEntry - lastSL), "#.#") + "R")), tblMute, tblKey)
     table.cell(t, 0, 31, useSimple ? "How entries work" : "Mode", text_color = tblMute, text_size = size.tiny)
-    table.cell(t, 1, 31, useSimple ? "Research → wait gate → sweep → flip → pullback | v6.7.2" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.7.2", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
+    table.cell(t, 1, 31, useSimple ? "Research → wait gate → sweep → flip → pullback | v6.7.3" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.7.3", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 32, useSimple ? "Tools ON" : "Edges", text_color = tblMute, text_size = size.tiny)
     table.cell(t, 1, 32, useSimple ? ((useDailyBias ? "DaySide " : "") + (useJudasWin ? "FakeMove " : "") + (useDispGate ? "StrongPush " : "") + (sbPlaybook ? "BestHour " : "") + (useIPDA ? "20/40Day " : "") + (useSmtES ? "Stocks " : "") + (useDeadHrs ? "SlowHrs " : "") + (useHTFDraw ? "TP-lines " : "") + (useAMD ? "DayStory " : "") + (aPlusMode ? "TopOnly" : "")) : ((useDailyBias ? "DayBias " : "") + (useJudasWin ? "Judas " : "") + (useDispGate ? "DispFVG " : "") + (sbPlaybook ? "SB " : "") + (useIPDA ? "IPDA " : "") + (useSmtES ? "ES " : "") + (useDeadHrs ? "DeadHrs " : "") + (useHTFDraw ? "Draw " : "") + (useAMD ? "AMD " : "") + (aPlusMode ? "A+" : "")), text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 33, useSimple ? "Desk rule" : "Flow", text_color = tblMute, text_size = size.tiny)
