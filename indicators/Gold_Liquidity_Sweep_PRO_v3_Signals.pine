@@ -1,13 +1,13 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Gold Liquidity Sweep PRO v6.4 — RESEARCH DESK [Rajesh Sha]
-// Desk flow: Gate → Bias → Levels → Confirm → Decision. Research story kept even when gated.
+// Gold Liquidity Sweep PRO v6.4.1 — RESEARCH DESK [Rajesh Sha]
+// Clearer labels: TAKE PROFIT = exit target (not entry). Desk research flow unchanged.
 // COMPILE-FIXED: clearPend; const plotshape; global table helpers (CE10156).
 //
 // USE: OANDA:XAUUSD, 1-minute. HTF non-repainting ([1]+lookahead_on).
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=6
-indicator("Gold Liquidity Sweep PRO v6.4 — Signals",
-     shorttitle = "GOLD LiqSweep PRO v6.4",
+indicator("Gold Liquidity Sweep PRO v6.4.1 — Signals",
+     shorttitle = "GOLD LiqSweep PRO v6.4.1.1",
      overlay = true,
      max_lines_count = 500,
      max_labels_count = 500,
@@ -331,7 +331,7 @@ method refresh(LiqLevel L, float newPrice) =>
         L.pool := side
         // Keep previous full wording — tidy via pin stagger only
         // Plain English action tip on every level
-        string tip = not useSimple ? " [" + side + "]" : L.kind == "high" ? " | fake UP here = SELL" : " | fake DOWN here = BUY"
+        string tip = not useSimple ? " [" + side + "]" : L.kind == "high" ? " | fake UP here = look SELL" : " | fake DOWN here = look BUY"
         string txt = L.name + "  " + str.tostring(newPrice, format.mintick) + tip
         L.ln := line.new(bar_index, newPrice, bar_index + 1, newPrice, extend = extend.right, color = L.col, width = 2)
         L.lb := label.new(bar_index, newPrice, txt, style = label.style_label_right, color = f_lblBg(L.col), textcolor = f_lblTx(L.col), size = size.small)
@@ -484,7 +484,7 @@ if newDay
         if not na(dayOpenLb)
             label.delete(dayOpenLb)
         dayOpenLn := line.new(bar_index, dayOpen, bar_index + 1, dayOpen, extend = extend.right, color = color.rgb(191, 128, 64), width = 1, style = line.style_dotted)
-        dayOpenLb := label.new(bar_index, dayOpen, useSimple ? "TODAY OPEN " + str.tostring(dayOpen, format.mintick) + " — price often returns here (bounce or reject)" : "Day-O  " + str.tostring(dayOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(191, 128, 64)), textcolor = f_lblTx(color.rgb(191, 128, 64)), size = size.small)
+        dayOpenLb := label.new(bar_index, dayOpen, useSimple ? "TODAY OPEN " + str.tostring(dayOpen, format.mintick) + " — magnet (bounce/reject) · can be SELL exit" : "Day-O  " + str.tostring(dayOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(191, 128, 64)), textcolor = f_lblTx(color.rgb(191, 128, 64)), size = size.small)
 else
     if na(cdH) or high > cdH
         cdH := high
@@ -511,7 +511,7 @@ if newWeek
         if not na(weekOpenLb)
             label.delete(weekOpenLb)
         weekOpenLn := line.new(bar_index, weekOpen, bar_index + 1, weekOpen, extend = extend.right, color = color.rgb(176, 106, 56), width = 1, style = line.style_dotted)
-        weekOpenLb := label.new(bar_index, weekOpen, useSimple ? "WEEK OPEN " + str.tostring(weekOpen, format.mintick) + " — price often returns (TP or reverse)" : "Week-O  " + str.tostring(weekOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(176, 106, 56)), textcolor = f_lblTx(color.rgb(176, 106, 56)), size = size.small)
+        weekOpenLb := label.new(bar_index, weekOpen, useSimple ? "WEEK OPEN " + str.tostring(weekOpen, format.mintick) + " — magnet (bounce/reject or cash-out)" : "Week-O  " + str.tostring(weekOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(176, 106, 56)), textcolor = f_lblTx(color.rgb(176, 106, 56)), size = size.small)
 else
     if na(cwH) or high > cwH
         cwH := high
@@ -627,7 +627,7 @@ f_addRound(px, isHigh) =>
     L.ln := line.new(bar_index, px, bar_index + 1, px, extend = extend.right, color = color.new(col, 35), width = 1, style = line.style_dotted)
     // Keep previous RND wording — never remove; tidy via pin stagger only
     if showRoundLbs
-        string tip = useSimple ? (isHigh ? " round HIGH — fake UP = SELL / TP up" : " round LOW — fake DOWN = BUY / TP down") : " [" + L.pool + "]"
+        string tip = useSimple ? (isHigh ? " round HIGH — fake UP = SELL · also BUY exit target" : " round LOW — fake DOWN = BUY · also SELL exit target") : " [" + L.pool + "]"
         L.lb := label.new(bar_index, px, nm + tip, style = label.style_label_right, color = f_lblBg(col), textcolor = f_lblTx(col), size = size.small)
     array.push(roundLevels, L)
 
@@ -871,7 +871,7 @@ if array.size(roundLevels) > 0
             drawSSL := f_pickBelow(L.price, drawSSL)
 drawLongOK  = not useHTFDraw or not requireDraw or not na(drawBSL)
 drawShortOK = not useHTFDraw or not requireDraw or not na(drawSSL)
-string drawTxt = not useHTFDraw ? "Off" : useSimple ? ((not na(drawBSL) ? "TP up " + str.tostring(drawBSL, format.mintick) + " (+$" + str.tostring(drawBSL - close, "#.#") + ")" : "no clean up target") + " | " + (not na(drawSSL) ? "TP down " + str.tostring(drawSSL, format.mintick) + " (-$" + str.tostring(close - drawSSL, "#.#") + ")" : "no clean down target")) : ((not na(drawBSL) ? "UP " + str.tostring(drawBSL, format.mintick) : "no BSL") + " | " + (not na(drawSSL) ? "DN " + str.tostring(drawSSL, format.mintick) : "no SSL"))
+string drawTxt = not useHTFDraw ? "Off" : useSimple ? ((not na(drawBSL) ? "BUY exit ↑ " + str.tostring(drawBSL, format.mintick) + " (+$" + str.tostring(drawBSL - close, "#.#") + ")" : "no BUY exit yet") + " | " + (not na(drawSSL) ? "SELL exit ↓ " + str.tostring(drawSSL, format.mintick) + " (-$" + str.tostring(close - drawSSL, "#.#") + ")" : "no SELL exit yet")) : ((not na(drawBSL) ? "UP " + str.tostring(drawBSL, format.mintick) : "no BSL") + " | " + (not na(drawSSL) ? "DN " + str.tostring(drawSSL, format.mintick) : "no SSL"))
 
 // HTF POI alignment
 inHtfBullPOI = useHTFPOI and not na(htfBullBot) and low <= htfBullTop and high >= htfBullBot
@@ -1965,7 +1965,7 @@ if showTable and barstate.islast
     color sbCol = not sbPlaybook ? color.gray : inSB and (sbLoSwept or sbHiSwept) ? tblGood : inSB ? color.orange : tblMute
 
     // ═══════════ LAYOUT (read top → bottom) ═══════════
-    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.4", text_color = color.white, bgcolor = color.navy, text_size = size.small)
+    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.4.1", text_color = color.white, bgcolor = color.navy, text_size = size.small)
     table.cell(t, 1, 0, hdrStatus, text_color = color.white, bgcolor = hdrBg, text_size = size.small)
 
     f_tblSec(t, 1, useSimple ? "1) GATE - can I trade now?" : "1) GATE")
@@ -1980,7 +1980,7 @@ if showTable and barstate.islast
     f_tblRow(t, 9, useSimple ? "Day story stage" : "AMD", amdTxt, tblMute, amdCol)
 
     f_tblSec(t, 10, useSimple ? "3) LEVELS - where can price go?" : "3) LIQUIDITY")
-    f_tblRow(t, 11, useSimple ? "Take-profit targets" : "Draw", drawTxt, tblMute, drawCol)
+    f_tblRow(t, 11, useSimple ? "Where to cash out" : "Draw", drawTxt, tblMute, drawCol)
     f_tblRow(t, 12, useSimple ? "20-day high & low" : "IPDA", ipdaTxt, tblMute, nearIpdaHi ? tblBad : nearIpdaLo ? tblGood : (useIPDA ? tblKey : color.gray))
     f_tblRow(t, 13, useSimple ? "Yesterday high / low" : "PDH/PDL", ydayTxt, tblMute, tblKey)
     f_tblRow(t, 14, useSimple ? "Today / week high-low" : "Day/Week", dayLiveTxt + " | " + weekLiveTxt, tblMute, tblKey)
@@ -2003,7 +2003,7 @@ if showTable and barstate.islast
     f_tblRow(t, 27, useSimple ? "Research edge (desk)" : "Edge", edgeTxt, tblMute, edgeCol)
     f_tblRow(t, 28, useSimple ? "Ideas today / last" : "Signals", str.tostring(signalsToday) + " / " + str.tostring(maxSigDay) + " · " + (lastTag == "" ? (useSimple ? "no idea yet" : "-") : lastTag), tblMute, tblKey)
     table.cell(t, 0, 29, useSimple ? "How entries work" : "Mode", text_color = tblMute, text_size = size.tiny)
-    table.cell(t, 1, 29, useSimple ? "Research → wait gate → sweep → flip → pullback | v6.4" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.4", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
+    table.cell(t, 1, 29, useSimple ? "Research → wait gate → sweep → flip → pullback | v6.4.1" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.4.1", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 30, useSimple ? "Tools ON" : "Edges", text_color = tblMute, text_size = size.tiny)
     table.cell(t, 1, 30, useSimple ? ((useDailyBias ? "DaySide " : "") + (useJudasWin ? "FakeMove " : "") + (useDispGate ? "StrongPush " : "") + (sbPlaybook ? "BestHour " : "") + (useIPDA ? "20/40Day " : "") + (useSmtES ? "Stocks " : "") + (useDeadHrs ? "SlowHrs " : "") + (useHTFDraw ? "TP-lines " : "") + (useAMD ? "DayStory " : "") + (aPlusMode ? "TopOnly" : "")) : ((useDailyBias ? "DayBias " : "") + (useJudasWin ? "Judas " : "") + (useDispGate ? "DispFVG " : "") + (sbPlaybook ? "SB " : "") + (useIPDA ? "IPDA " : "") + (useSmtES ? "ES " : "") + (useDeadHrs ? "DeadHrs " : "") + (useHTFDraw ? "Draw " : "") + (useAMD ? "AMD " : "") + (aPlusMode ? "A+" : "")), text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 31, useSimple ? "Desk rule" : "Flow", text_color = tblMute, text_size = size.tiny)
@@ -2025,10 +2025,10 @@ if showEliteVis and barstate.islast
         label.delete(drawDnLb)
     if useHTFDraw and not na(drawBSL)
         drawUpLn := line.new(bar_index - 5, drawBSL, bar_index + 25, drawBSL, color = color.new(color.red, 40), width = 2, style = line.style_dashed)
-        drawUpLb := label.new(bar_index + 26, drawBSL, useSimple ? "TAKE PROFIT UP " + str.tostring(drawBSL, format.mintick) : "DRAW BSL " + str.tostring(drawBSL, format.mintick), style = label.style_label_left, color = f_lblBg(color.red), textcolor = f_lblTx(color.red), size = size.tiny)
+        drawUpLb := label.new(bar_index + 26, drawBSL, useSimple ? "IF BUY → take profit HERE ↑ " + str.tostring(drawBSL, format.mintick) + "  (exit target, not entry)" : "DRAW BSL " + str.tostring(drawBSL, format.mintick), style = label.style_label_left, color = f_lblBg(color.red), textcolor = f_lblTx(color.red), size = size.tiny)
     if useHTFDraw and not na(drawSSL)
         drawDnLn := line.new(bar_index - 5, drawSSL, bar_index + 25, drawSSL, color = color.new(color.green, 40), width = 2, style = line.style_dashed)
-        drawDnLb := label.new(bar_index + 26, drawSSL, useSimple ? "TAKE PROFIT DOWN " + str.tostring(drawSSL, format.mintick) : "DRAW SSL " + str.tostring(drawSSL, format.mintick), style = label.style_label_left, color = f_lblBg(color.green), textcolor = f_lblTx(color.green), size = size.tiny)
+        drawDnLb := label.new(bar_index + 26, drawSSL, useSimple ? "IF SELL → take profit HERE ↓ " + str.tostring(drawSSL, format.mintick) + "  (exit target, not entry)" : "DRAW SSL " + str.tostring(drawSSL, format.mintick), style = label.style_label_left, color = f_lblBg(color.green), textcolor = f_lblTx(color.green), size = size.tiny)
 bgcolor(showEliteVis and useAMD and amdPhase == "ACC" ? color.new(color.blue, 96) : showEliteVis and useAMD and amdPhase == "MAN" ? color.new(color.orange, 94) : showEliteVis and useAMD and amdPhase == "DIST" ? color.new(color.green, 96) : na, title = "AMD phase")
 
 // ═══════════════════════════ ALERTS ═══════════════════════════
