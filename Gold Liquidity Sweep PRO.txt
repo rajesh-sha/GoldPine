@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Gold Liquidity Sweep PRO v3.1 — INSTITUTIONAL SIGNALS [Rajesh Sha]
-// COMPILE-FIXED: no f_resetPend() — if your editor still shows f_resetPend, you pasted the OLD file.
+// Gold Liquidity Sweep PRO v3.2 — INSTITUTIONAL SIGNALS [Rajesh Sha]
+// COMPILE-FIXED: no f_resetPend(); plotshape text uses const strings only.
 //
 // Indicator-only companion of the strategy file.
 //   SAME engine as v2 (PDH/PDL, PWH/PWL, Asian range, EQH/EQL, live Day/Week
@@ -23,8 +23,8 @@
 // All HTF data non-repainting ([1] + lookahead_on).
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=6
-indicator("Gold Liquidity Sweep PRO v3.1 — Signals",
-     shorttitle = "GOLD LiqSweep PRO v3.1",
+indicator("Gold Liquidity Sweep PRO v3.2 — Signals",
+     shorttitle = "GOLD LiqSweep PRO v3.2",
      overlay = true,
      max_lines_count = 500,
      max_labels_count = 500,
@@ -814,8 +814,10 @@ if pendDir != 0 and proMode and pendMSS and waitEntry == 0
         waitEntry := fvgWB
         zoneBorn := bar_index
         if showFVGBox
-            color zc = pendDir == 1 ? color.green : color.red
-            zoneBox := box.new(bar_index - 2, fvgTop, bar_index + fvgWB, fvgBot, border_color = zc, bgcolor = color.new(zc, 88), text = pendDir == 1 ? "BUY OB/FVG" : "SELL OB/FVG", text_color = zc)
+            if pendDir == 1
+                zoneBox := box.new(bar_index - 2, fvgTop, bar_index + fvgWB, fvgBot, border_color = color.green, bgcolor = color.new(color.green, 88), text = "BUY OB/FVG", text_color = color.green)
+            else
+                zoneBox := box.new(bar_index - 2, fvgTop, bar_index + fvgWB, fvgBot, border_color = color.red, bgcolor = color.new(color.red, 88), text = "SELL OB/FVG", text_color = color.red)
         pendBars := 0
     else
         pendBars -= 1
@@ -979,8 +981,11 @@ if fireShort
 // ═══════════════════════════ VISUALS ═══════════════════════════
 plotshape(fireLong,  title = "BUY",  text = "BUY",  style = shape.labelup,   location = location.belowbar, color = color.green, textcolor = color.white, size = size.small)
 plotshape(fireShort, title = "SELL", text = "SELL", style = shape.labeldown, location = location.abovebar, color = color.red,   textcolor = color.white, size = size.small)
-plotshape(showMSSMarks and mssLongMark,  title = "MSS Long",  text = useSimple ? "STRUCTURE\nFLIP UP" : "MSS",  style = shape.triangleup,   location = location.belowbar, color = color.lime, size = size.tiny)
-plotshape(showMSSMarks and mssShortMark, title = "MSS Short", text = useSimple ? "STRUCTURE\nFLIP DOWN" : "MSS", style = shape.triangledown, location = location.abovebar, color = color.fuchsia, size = size.tiny)
+// plotshape text must be const string — split simple/pro labels (CE10123)
+plotshape(showMSSMarks and mssLongMark and useSimple,     title = "MSS Long Simple",  text = "STRUCTURE\nFLIP UP",   style = shape.triangleup,   location = location.belowbar, color = color.lime, size = size.tiny)
+plotshape(showMSSMarks and mssLongMark and not useSimple, title = "MSS Long",         text = "MSS",                 style = shape.triangleup,   location = location.belowbar, color = color.lime, size = size.tiny)
+plotshape(showMSSMarks and mssShortMark and useSimple,     title = "MSS Short Simple", text = "STRUCTURE\nFLIP DOWN", style = shape.triangledown, location = location.abovebar, color = color.fuchsia, size = size.tiny)
+plotshape(showMSSMarks and mssShortMark and not useSimple, title = "MSS Short",        text = "MSS",                 style = shape.triangledown, location = location.abovebar, color = color.fuchsia, size = size.tiny)
 plotshape(showMSSMarks and cisdLongMark,  title = "CISD Long",  text = "CISD", style = shape.circle, location = location.belowbar, color = color.new(color.teal, 40), size = size.tiny)
 plotshape(showMSSMarks and cisdShortMark, title = "CISD Short", text = "CISD", style = shape.circle, location = location.abovebar, color = color.new(color.orange, 40), size = size.tiny)
 
@@ -1060,7 +1065,7 @@ if showTable and barstate.islast
          (londonLowSweptNY or londonHighSweptNY ? (useSimple ? (asiaLowSweptLondon or asiaHighSweptLondon ? " · " : "") + "NY swept London" : (asiaLowSweptLondon or asiaHighSweptLondon ? " · " : "") + "NY>London") : "")
     hierTxt := hierTxt == "" ? (useSimple ? "No session hunt yet" : "None") : hierTxt
 
-    table.cell(t, 0, 0, "GOLD LiqSweep PRO v3.1", text_color = color.white, bgcolor = color.navy, text_size = size.small)
+    table.cell(t, 0, 0, "GOLD LiqSweep PRO v3.2", text_color = color.white, bgcolor = color.navy, text_size = size.small)
     table.cell(t, 1, 0, standAside ? (useSimple ? "DO NOT TRADE" : "STAND ASIDE") : (useSimple ? "WATCHING" : "SCANNING"), text_color = color.white, bgcolor = standAside ? color.red : color.new(color.green, 30), text_size = size.small)
     table.cell(t, 0, 1, useSimple ? "Big trend (4H)" : "Bias", text_color = color.black, text_size = size.small)
     table.cell(t, 1, 1, biasTxt, text_color = biasCol, text_size = size.small)
