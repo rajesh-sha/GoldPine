@@ -1,13 +1,13 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Gold Liquidity Sweep PRO v6.7.1 — QUIET RR BOXES [Rajesh Sha]
-// Low-noise LONG/SHORT boxes: short width, TP1 target, keep last 2, minimal text.
+// Gold Liquidity Sweep PRO v6.7.2 — CLEAN RR CARDS [Rajesh Sha]
+// TV-style long/short geometry, one mid R:R pill only — no Target/Stop/Amount clutter.
 // COMPILE-FIXED: clearPend; const plotshape; global table helpers (CE10156).
 //
 // USE: OANDA:XAUUSD, 1-minute. HTF non-repainting ([1]+lookahead_on).
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=6
-indicator("Gold Liquidity Sweep PRO v6.7.1 — Signals",
-     shorttitle = "GOLD LiqSweep PRO v6.7.1",
+indicator("Gold Liquidity Sweep PRO v6.7.2 — Signals",
+     shorttitle = "GOLD LiqSweep PRO v6.7.2",
      overlay = true,
      max_lines_count = 500,
      max_labels_count = 500,
@@ -207,7 +207,7 @@ lightTable     = input.bool(true, "Light status table (v3.2 style)", group = grp
 showBG         = input.bool(true, "Shade kill zones", group = grpVis)
 showFVGBox     = input.bool(true, "Draw pending FVG / OB zone", group = grpVis)
 showMSSMarks   = input.bool(true, "Mark MSS / CISD confirmations", group = grpVis)
-showRRBoxes    = input.bool(true, "Show LONG/SHORT risk-reward boxes", group = grpVis, tooltip = "Quiet mode: pink = risk, green = profit to TP1. Keeps only last few trades.")
+showRRBoxes    = input.bool(true, "Show LONG/SHORT risk-reward boxes", group = grpVis, tooltip = "Clean TV-style cards: green profit / red risk, one R:R pill. Details stay in the table.")
 rrBoxBars      = input.int(24, "RR box width (bars)", minval = 8, maxval = 80, group = grpVis)
 rrKeepN        = input.int(2, "Keep last N RR trades", minval = 1, maxval = 6, group = grpVis)
 showTradeLines = input.bool(false, "Also show old entry/SL/TP lines", group = grpVis)
@@ -1551,15 +1551,14 @@ f_oppShort() =>
     best
 
 // ═══════════════════════════ SIGNAL OUTPUT ═══════════════════════════
-// Quiet RR objects — auto-prune so chart stays clean
+// Clean RR cards — TV long/short look, almost no text (table holds details)
 var array<box>   rrBoxes = array.new_box()
 var array<line>  rrLines = array.new_line()
 var array<label> rrLabs  = array.new_label()
 
 f_rrPrune() =>
-    // 2 boxes + 1 entry line + 1 tiny label per trade
     int maxB = rrKeepN * 2
-    int maxL = rrKeepN
+    int maxL = rrKeepN * 2
     int maxLb = rrKeepN
     while array.size(rrBoxes) > maxB
         box.delete(array.shift(rrBoxes))
@@ -1571,32 +1570,42 @@ f_rrPrune() =>
 f_drawTrade(isLong, entryP, slP, tp1P, tp2P, qtyTxt, tag, timeTxt) =>
     int x1 = bar_index
     int x2 = bar_index + rrBoxBars
-    // Quiet target = TP1 (not far TP2) so boxes stay small
+    int xMid = int(math.round((x1 + x2) * 0.5))
+    // Compact target = TP1 (keeps card height sane)
     float tpShow = not na(tp1P) ? tp1P : tp2P
     float risk = math.abs(entryP - slP)
     float reward = math.abs(tpShow - entryP)
     float rr = risk > 0 ? reward / risk : 0.0
-    color riskBg = color.new(color.rgb(255, 182, 193), 82)
-    color riskBd = color.new(color.rgb(244, 143, 177), 55)
-    color winBg  = color.new(color.rgb(165, 214, 167), 82)
-    color winBd  = color.new(color.rgb(129, 199, 132), 55)
+    // TV-like soft fills
+    color riskBg = color.new(color.rgb(239, 83, 80), 85)
+    color riskBd = color.new(color.rgb(239, 83, 80), 55)
+    color winBg  = color.new(color.rgb(38, 166, 154), 85)
+    color winBd  = color.new(color.rgb(38, 166, 154), 55)
 
-    if showRRBoxes
+    if showRRBoxes and risk > 0 and reward > 0
         box bRisk = na
         box bWin = na
         if isLong
-            bRisk := box.new(x1, entryP, x2, slP, bgcolor = riskBg, border_color = riskBd, border_width = 1)
+            // LONG card: profit ABOVE, risk BELOW (TV Long Position)
             bWin  := box.new(x1, tpShow, x2, entryP, bgcolor = winBg, border_color = winBd, border_width = 1)
+            bRisk := box.new(x1, entryP, x2, slP, bgcolor = riskBg, border_color = riskBd, border_width = 1)
+            // Teal stem under risk (TV cue)
+            line stem = line.new(xMid, entryP, xMid, slP - risk * 0.25, color = color.new(color.rgb(38, 166, 154), 30), width = 2)
+            array.push(rrLines, stem)
         else
+            // SHORT card: risk ABOVE, profit BELOW (TV Short Position)
             bRisk := box.new(x1, slP, x2, entryP, bgcolor = riskBg, border_color = riskBd, border_width = 1)
             bWin  := box.new(x1, entryP, x2, tpShow, bgcolor = winBg, border_color = winBd, border_width = 1)
-        array.push(rrBoxes, bRisk)
+            line stem = line.new(xMid, slP, xMid, tpShow, color = color.new(color.gray, 50), width = 1, style = line.style_dashed)
+            array.push(rrLines, stem)
         array.push(rrBoxes, bWin)
-        line eLn = line.new(x1, entryP, x2, entryP, color = color.new(color.rgb(33, 33, 33), 20), width = 1)
+        array.push(rrBoxes, bRisk)
+        // Entry seam only
+        line eLn = line.new(x1, entryP, x2, entryP, color = color.new(color.rgb(55, 71, 79), 25), width = 1)
         array.push(rrLines, eLn)
-        // One tiny tag only — no price spam on chart
-        string tiny = (isLong ? "BUY " : "SELL ") + str.tostring(rr, "#.#") + "R"
-        label lb = label.new(x2, entryP, tiny, style = label.style_label_left, color = isLong ? color.new(color.green, 35) : color.new(color.red, 35), textcolor = color.white, size = size.tiny)
+        // ONE mid pill — no Target/Stop/Amount/Qty clutter (those live in table)
+        string pill = (isLong ? "BUY " : "SELL ") + str.tostring(rr, "#.#") + "R"
+        label lb = label.new(x2, entryP, pill, style = label.style_label_left, color = isLong ? color.new(color.rgb(38, 166, 154), 15) : color.new(color.rgb(239, 83, 80), 15), textcolor = color.white, size = size.tiny)
         array.push(rrLabs, lb)
         f_rrPrune()
 
@@ -2181,7 +2190,7 @@ if showTable and barstate.islast
     color midMonCol = not useOpens or na(midOpen) ? color.gray : close < midOpen ? tblGood : close > midOpen ? tblBad : color.orange
 
     // ═══════════ LAYOUT (read top → bottom) ═══════════
-    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.7.1", text_color = color.white, bgcolor = color.navy, text_size = size.small)
+    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.7.2", text_color = color.white, bgcolor = color.navy, text_size = size.small)
     table.cell(t, 1, 0, hdrStatus, text_color = color.white, bgcolor = hdrBg, text_size = size.small)
 
     f_tblSec(t, 1, useSimple ? "1) GATE - can I trade now?" : "1) GATE")
@@ -2220,9 +2229,9 @@ if showTable and barstate.islast
 
     f_tblSec(t, 28, useSimple ? "6) LOG - score and mode" : "6) LOG")
     f_tblRow(t, 29, useSimple ? "Research edge (desk)" : "Edge", edgeTxt, tblMute, edgeCol)
-    f_tblRow(t, 30, useSimple ? "Ideas today / last" : "Signals", str.tostring(signalsToday) + " / " + str.tostring(maxSigDay) + " · " + (lastTag == "" ? (useSimple ? "no idea yet" : "-") : lastTag), tblMute, tblKey)
+    f_tblRow(t, 30, useSimple ? "Ideas today / last" : "Signals", str.tostring(signalsToday) + " / " + str.tostring(maxSigDay) + " · " + (lastTag == "" ? (useSimple ? "no idea yet" : "-") : lastTag + (na(lastEntry) or na(lastSL) or na(lastTP1) ? "" : " · SL " + str.tostring(lastSL, format.mintick) + " · TP " + str.tostring(lastTP1, format.mintick) + " · " + str.tostring(math.abs(lastTP1 - lastEntry) / math.abs(lastEntry - lastSL), "#.#") + "R")), tblMute, tblKey)
     table.cell(t, 0, 31, useSimple ? "How entries work" : "Mode", text_color = tblMute, text_size = size.tiny)
-    table.cell(t, 1, 31, useSimple ? "Research → wait gate → sweep → flip → pullback | v6.7.1" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.7.1", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
+    table.cell(t, 1, 31, useSimple ? "Research → wait gate → sweep → flip → pullback | v6.7.2" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.7.2", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 32, useSimple ? "Tools ON" : "Edges", text_color = tblMute, text_size = size.tiny)
     table.cell(t, 1, 32, useSimple ? ((useDailyBias ? "DaySide " : "") + (useJudasWin ? "FakeMove " : "") + (useDispGate ? "StrongPush " : "") + (sbPlaybook ? "BestHour " : "") + (useIPDA ? "20/40Day " : "") + (useSmtES ? "Stocks " : "") + (useDeadHrs ? "SlowHrs " : "") + (useHTFDraw ? "TP-lines " : "") + (useAMD ? "DayStory " : "") + (aPlusMode ? "TopOnly" : "")) : ((useDailyBias ? "DayBias " : "") + (useJudasWin ? "Judas " : "") + (useDispGate ? "DispFVG " : "") + (sbPlaybook ? "SB " : "") + (useIPDA ? "IPDA " : "") + (useSmtES ? "ES " : "") + (useDeadHrs ? "DeadHrs " : "") + (useHTFDraw ? "Draw " : "") + (useAMD ? "AMD " : "") + (aPlusMode ? "A+" : "")), text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 33, useSimple ? "Desk rule" : "Flow", text_color = tblMute, text_size = size.tiny)

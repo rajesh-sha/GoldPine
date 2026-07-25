@@ -1,14 +1,5 @@
-# GoldPine — Gold Liquidity Sweep PRO v6.7
+# GoldPine v6.7.2 — Clean RR cards
 
-## Paste
+Paste: https://raw.githubusercontent.com/rajesh-sha/GoldPine/cursor/gold-liq-sweep-pro-v3-09e0/GOLD_FINAL_PASTE_THIS.txt
 
-https://raw.githubusercontent.com/rajesh-sha/GoldPine/cursor/gold-liq-sweep-pro-v3-09e0/GOLD_FINAL_PASTE_THIS.txt
-
-## New in v6.7
-
-LONG/SHORT **risk-reward boxes** on signals:
-- Green = profit / TP
-- Pink = risk / SL
-- Shows R:R
-
-Chart: `OANDA:XAUUSD` · 1m · Beginner mode ON
+TV-style long/short boxes, **one** mid pill (`BUY 3.9R`). No Target/Stop/Amount clutter — full numbers live in the table.
