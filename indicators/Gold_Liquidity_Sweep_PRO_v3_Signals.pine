@@ -550,7 +550,7 @@ if useNDOG and newDay
         if not na(ndogLb)
             label.delete(ndogLb)
         if showEliteVis and ndogTop - ndogBot >= syminfo.mintick
-            ndogBox := box.new(bar_index, ndogTop, bar_index + 40, ndogBot, border_color = color.rgb(191, 128, 64), bgcolor = color.new(color.rgb(191, 128, 64), 82), text = "NDOG", text_color = color.white)
+            ndogBox := box.new(bar_index, ndogTop, bar_index + 40, ndogBot, border_color = color.rgb(191, 128, 64), bgcolor = color.new(color.rgb(191, 128, 64), 82), text = useSimple ? "DAY GAP" : "NDOG", text_color = color.white)
             ndogLb := label.new(bar_index + 8, ndogTop, useSimple ? "Day gap — price often fills this" : "NDOG", style = label.style_label_left, color = f_lblBg(color.rgb(191, 128, 64)), textcolor = f_lblTx(color.rgb(191, 128, 64)), size = size.small)
 if useNDOG and newWeek
     float pwc = close[1]
@@ -562,7 +562,7 @@ if useNDOG and newWeek
         if not na(nwogLb)
             label.delete(nwogLb)
         if showEliteVis and nwogTop - nwogBot >= syminfo.mintick
-            nwogBox := box.new(bar_index, nwogTop, bar_index + 80, nwogBot, border_color = color.rgb(176, 106, 56), bgcolor = color.new(color.rgb(176, 106, 56), 82), text = "NWOG", text_color = color.white)
+            nwogBox := box.new(bar_index, nwogTop, bar_index + 80, nwogBot, border_color = color.rgb(176, 106, 56), bgcolor = color.new(color.rgb(176, 106, 56), 82), text = useSimple ? "WEEK GAP" : "NWOG", text_color = color.white)
             nwogLb := label.new(bar_index + 8, nwogTop, useSimple ? "Week gap — price often fills this" : "NWOG", style = label.style_label_left, color = f_lblBg(color.rgb(176, 106, 56)), textcolor = f_lblTx(color.rgb(176, 106, 56)), size = size.small)
 nearNDOG = useNDOG and not na(ndogTop) and high >= ndogBot and low <= ndogTop
 nearNWOG = useNDOG and not na(nwogTop) and high >= nwogBot and low <= nwogTop
@@ -1388,9 +1388,9 @@ if pendDir != 0 and proMode and pendMSS and waitEntry == 0
         bool uniZone = useUnicorn and not na(brkTop) and not na(brkBot) and fvgBot <= brkTop and fvgTop >= brkBot
         if showFVGBox
             if pendDir == 1
-                zoneBox := box.new(bar_index - 2, fvgTop, bar_index + fvgWB, fvgBot, border_color = color.green, bgcolor = color.new(color.green, 88), text = uniZone ? "BUY UNICORN" : "BUY CE/OB/FVG", text_color = color.green)
+                zoneBox := box.new(bar_index - 2, fvgTop, bar_index + fvgWB, fvgBot, border_color = color.green, bgcolor = color.new(color.green, 88), text = useSimple ? (uniZone ? "BUY ZONE (best)" : "BUY ZONE — enter on dip") : (uniZone ? "BUY UNICORN" : "BUY CE/OB/FVG"), text_color = color.green)
             else
-                zoneBox := box.new(bar_index - 2, fvgTop, bar_index + fvgWB, fvgBot, border_color = color.red, bgcolor = color.new(color.red, 88), text = uniZone ? "SELL UNICORN" : "SELL CE/OB/FVG", text_color = color.red)
+                zoneBox := box.new(bar_index - 2, fvgTop, bar_index + fvgWB, fvgBot, border_color = color.red, bgcolor = color.new(color.red, 88), text = useSimple ? (uniZone ? "SELL ZONE (best)" : "SELL ZONE — enter on rise") : (uniZone ? "SELL UNICORN" : "SELL CE/OB/FVG"), text_color = color.red)
         pendBars := 0
     else
         pendBars -= 1
@@ -1613,8 +1613,10 @@ plotshape(showMSSMarks and mssLongMark and useSimple,     title = "MSS Long Simp
 plotshape(showMSSMarks and mssLongMark and not useSimple, title = "MSS Long",         text = "MSS",                 style = shape.triangleup,   location = location.belowbar, color = color.lime, size = size.tiny)
 plotshape(showMSSMarks and mssShortMark and useSimple,     title = "MSS Short Simple", text = "STRUCTURE\nFLIP DOWN", style = shape.triangledown, location = location.abovebar, color = color.fuchsia, size = size.tiny)
 plotshape(showMSSMarks and mssShortMark and not useSimple, title = "MSS Short",        text = "MSS",                 style = shape.triangledown, location = location.abovebar, color = color.fuchsia, size = size.tiny)
-plotshape(showMSSMarks and cisdLongMark,  title = "CISD Long",  text = "CISD", style = shape.circle, location = location.belowbar, color = color.new(color.teal, 40), size = size.tiny)
-plotshape(showMSSMarks and cisdShortMark, title = "CISD Short", text = "CISD", style = shape.circle, location = location.abovebar, color = color.new(color.orange, 40), size = size.tiny)
+plotshape(showMSSMarks and cisdLongMark and useSimple,  title = "Early BUY arm",  text = "EARLY\nBUY", style = shape.circle, location = location.belowbar, color = color.new(color.teal, 40), size = size.tiny)
+plotshape(showMSSMarks and cisdLongMark and not useSimple,  title = "CISD Long",  text = "CISD", style = shape.circle, location = location.belowbar, color = color.new(color.teal, 40), size = size.tiny)
+plotshape(showMSSMarks and cisdShortMark and useSimple, title = "Early SELL arm", text = "EARLY\nSELL", style = shape.circle, location = location.abovebar, color = color.new(color.orange, 40), size = size.tiny)
+plotshape(showMSSMarks and cisdShortMark and not useSimple, title = "CISD Short", text = "CISD", style = shape.circle, location = location.abovebar, color = color.new(color.orange, 40), size = size.tiny)
 
 // Session killzone tint (AMD tint applied near table section)
 bgcolor(showBG and inLondon ? color.new(color.blue, 94) : showBG and inSB ? color.new(color.green, 92) : showBG and inNY ? color.new(color.purple, 94) : na)
