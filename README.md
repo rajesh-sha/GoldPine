@@ -1,62 +1,42 @@
-# GoldPine — Gold Liquidity Sweep PRO v3
+# GoldPine — Gold Liquidity Sweep PRO v4
 
-Institutional liquidity-sweep signal indicator for **XAUUSD** (TradingView Pine Script v6).
+Institutional **liquidity / price-action** signal indicator for XAUUSD (TradingView Pine v6).
 
-Not a retail “buy the wick” tool. It encodes the sequence desks actually trade:
+## What desks actually trade (not EMA noise)
 
-**Pool → Sweep → CISD/MSS → Order Block / FVG retest → opposite liquidity**
+**Inducement → External sweep → CISD/MSS → Premium/Discount + OTE → CE/OB/Breaker → opposite pool**
+
+| Edge | Role |
+|------|------|
+| PDH/PDL, Asia, Day/Week, EQH/EQL, rounds | Liquidity pools |
+| Internal → External nesting | Inducement filter |
+| MSS / CISD | Structure confirmation after sweep |
+| Premium / Discount | Only buy discount, sell premium |
+| OTE 62–79% | Optimal Trade Entry of displacement |
+| Consequent Encroachment | 50% of FVG/OB entry |
+| Breaker at broken swing | Failed structure shelf |
+| NY Midnight / Day / Week opens | Institutional magnets |
+| SMT Gold vs Silver | True swing divergence (not EMA) |
+| Pure Liquidity mode | EMA/Stoch/200MA never veto |
 
 ## Files
 
-| File | Purpose |
-|------|---------|
-| `Gold Liquidity Sweep PRO.txt` | Main indicator (paste into TradingView Pine Editor) |
-| `indicators/Gold_Liquidity_Sweep_PRO_v3_Signals.pine` | Same script, `.pine` extension |
+- `Gold Liquidity Sweep PRO.txt` — paste into TradingView
+- `indicators/Gold_Liquidity_Sweep_PRO_v3_Signals.pine` — same script
 
 ## Chart setup
 
-1. Symbol: `OANDA:XAUUSD` (tick volume) or your gold feed
-2. Timeframe: **1 minute**
-3. Pine Editor → paste script → Add to chart
-4. Create alerts from the script’s alertconditions / `alert()` messages
+1. `OANDA:XAUUSD` on **1 minute**
+2. Pine Editor → paste full file → Add to chart
+3. Confirm title **v4** and table shows **PURE**
+4. Keep Entry Style = `MSS + FVG/OB (PRO)`
 
-## What v3 adds (vs v2)
+## Defaults (v4)
 
-| Edge | Why it matters |
-|------|----------------|
-| **MSS / CHoCH confirmation** | A sweep alone is suspicion; body-close through the swing that ran into the pool is confirmation |
-| **CISD arm** | Early opposite-delivery close after the sweep |
-| **Order Block + FVG entry** | Enter on institutional displacement zone retest, not the sweep candle |
-| **Round-number pools** | Gold stop shelves at $10 handles |
-| **Session hierarchy** | London vs Asia (Judas), NY vs London — confluence bonus |
-| **Sweep quality / double-sweep SL** | Rejection wick filter + worst-extreme stop while confirming |
-| **Stricter default grade** | Default minimum grade **A + B** |
-
-## Default entry mode
-
-**`MSS + FVG/OB (PRO)`** — keep this for maximum edge.
-
-Legacy modes still available:
-- `FVG retest`
-- `Reclaim close` (more signals, lower quality)
-
-## Status table (how to read it)
-
-- **DO NOT TRADE** — stay-away engine (Friday close-out, news chaos, Bias vs DXY conflict, daily cap, dead market)
-- **Institutional setup** — pending sweep → waiting MSS → zone live
-- **Session hunt** — Judas / NY-vs-London hierarchy
-- **Next action** — plain-English instruction for the current bar
-
-## Recommended filters (pro profile)
-
-- Bias Mode: EMA Filter (4H)
-- DXY inverse: ON
-- StochRSI exhaustion: ON
-- PTJ 200-day MA: ON
-- Kill zones only: ON
-- Minimum grade: **A + B**
-- Entry style: **MSS + FVG/OB (PRO)**
+- Pure Liquidity mode: **ON**
+- Bias EMA / StochRSI / PTJ 200MA: **OFF as vetoes**
+- Prem/Disc, OTE, CE, Breaker, Opens, Nesting, SMT: **ON**
 
 ## Disclaimer
 
-Educational tool only. Not financial advice. Past patterns do not guarantee future results. Size risk carefully.
+Educational only. Not financial advice.
