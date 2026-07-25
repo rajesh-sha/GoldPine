@@ -1,13 +1,13 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Gold Liquidity Sweep PRO v6.7.4 — SESSION CLOCKS [Rajesh Sha]
+// Gold Liquidity Sweep PRO v6.7.5 — SESSION CLOCKS FIX [Rajesh Sha]
 // Session open/close markers pinned to TOP of pane (not on candles). Melb+NY in table.
 // COMPILE-FIXED: clearPend; const plotshape; global table helpers (CE10156).
 //
 // USE: OANDA:XAUUSD, 1-minute. HTF non-repainting ([1]+lookahead_on).
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=6
-indicator("Gold Liquidity Sweep PRO v6.7.4 — Signals",
-     shorttitle = "GOLD LiqSweep PRO v6.7.4",
+indicator("Gold Liquidity Sweep PRO v6.7.5 — Signals",
+     shorttitle = "GOLD LiqSweep PRO v6.7.5",
      overlay = true,
      max_lines_count = 500,
      max_labels_count = 500,
@@ -1702,18 +1702,12 @@ nyStart     = inNY and not inNY[1]
 sbStart     = inSB and not inSB[1]
 sessEnd     = not (inLondon or inNY or inSB) and (inLondon[1] or inNY[1] or inSB[1])
 // TOP of pane only (not on candles). Full Melb+NY clock stays in the table "Time of day" row.
-plotshape(showBG and londonStart, title = "London open", text = "LONDON OPEN
-OK to trade", style = shape.labeldown, location = location.top, color = color.blue, textcolor = color.white, size = size.tiny)
-plotshape(showBG and nyStart, title = "New York open", text = "NEW YORK OPEN
-OK to trade", style = shape.labeldown, location = location.top, color = color.purple, textcolor = color.white, size = size.tiny)
-plotshape(showBG and sbStart, title = "Best hour", text = "BEST HOUR
-OK to trade", style = shape.labeldown, location = location.top, color = color.green, textcolor = color.white, size = size.tiny)
-plotshape(showBG and sessEnd and inLondon[1], title = "London closed", text = "LONDON CLOSED
-wait next", style = shape.labeldown, location = location.top, color = color.gray, textcolor = color.white, size = size.tiny)
-plotshape(showBG and sessEnd and not inLondon[1] and inSB[1], title = "Best hour closed", text = "BEST HOUR CLOSED
-wait next", style = shape.labeldown, location = location.top, color = color.gray, textcolor = color.white, size = size.tiny)
-plotshape(showBG and sessEnd and not inLondon[1] and not inSB[1] and inNY[1], title = "NY closed", text = "NY CLOSED
-wait next", style = shape.labeldown, location = location.top, color = color.gray, textcolor = color.white, size = size.tiny)
+plotshape(showBG and londonStart, title = "London open", text = "LONDON OPEN\nOK to trade", style = shape.labeldown, location = location.top, color = color.blue, textcolor = color.white, size = size.tiny)
+plotshape(showBG and nyStart, title = "New York open", text = "NEW YORK OPEN\nOK to trade", style = shape.labeldown, location = location.top, color = color.purple, textcolor = color.white, size = size.tiny)
+plotshape(showBG and sbStart, title = "Best hour", text = "BEST HOUR\nOK to trade", style = shape.labeldown, location = location.top, color = color.green, textcolor = color.white, size = size.tiny)
+plotshape(showBG and sessEnd and inLondon[1], title = "London closed", text = "LONDON CLOSED\nwait next", style = shape.labeldown, location = location.top, color = color.gray, textcolor = color.white, size = size.tiny)
+plotshape(showBG and sessEnd and not inLondon[1] and inSB[1], title = "Best hour closed", text = "BEST HOUR CLOSED\nwait next", style = shape.labeldown, location = location.top, color = color.gray, textcolor = color.white, size = size.tiny)
+plotshape(showBG and sessEnd and not inLondon[1] and not inSB[1] and inNY[1], title = "NY closed", text = "NY CLOSED\nwait next", style = shape.labeldown, location = location.top, color = color.gray, textcolor = color.white, size = size.tiny)
 
 plot(showBiasPlot and biasShow and not na(biasEma) ? biasEma : na, "4H Bias EMA", color = color.new(color.gray, 35), linewidth = 2)
 
@@ -2201,7 +2195,7 @@ if showTable and barstate.islast
     color midMonCol = not useOpens or na(midOpen) ? color.gray : close < midOpen ? tblGood : close > midOpen ? tblBad : color.orange
 
     // ═══════════ LAYOUT (read top → bottom) ═══════════
-    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.7.4", text_color = color.white, bgcolor = color.navy, text_size = size.small)
+    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.7.5", text_color = color.white, bgcolor = color.navy, text_size = size.small)
     table.cell(t, 1, 0, hdrStatus, text_color = color.white, bgcolor = hdrBg, text_size = size.small)
 
     f_tblSec(t, 1, useSimple ? "1) GATE - can I trade now?" : "1) GATE")
@@ -2242,7 +2236,7 @@ if showTable and barstate.islast
     f_tblRow(t, 29, useSimple ? "Research edge (desk)" : "Edge", edgeTxt, tblMute, edgeCol)
     f_tblRow(t, 30, useSimple ? "Ideas today / last" : "Signals", str.tostring(signalsToday) + " / " + str.tostring(maxSigDay) + " · " + (lastTag == "" ? (useSimple ? "no idea yet" : "-") : lastTag + (na(lastEntry) or na(lastSL) or na(lastTP1) ? "" : " · SL " + str.tostring(lastSL, format.mintick) + " · TP " + str.tostring(lastTP1, format.mintick) + " · " + str.tostring(math.abs(lastTP1 - lastEntry) / math.abs(lastEntry - lastSL), "#.#") + "R")), tblMute, tblKey)
     table.cell(t, 0, 31, useSimple ? "How entries work" : "Mode", text_color = tblMute, text_size = size.tiny)
-    table.cell(t, 1, 31, useSimple ? "Research → wait gate → sweep → flip → pullback | v6.7.4" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.7.4", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
+    table.cell(t, 1, 31, useSimple ? "Research → wait gate → sweep → flip → pullback | v6.7.5" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.7.5", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 32, useSimple ? "Tools ON" : "Edges", text_color = tblMute, text_size = size.tiny)
     table.cell(t, 1, 32, useSimple ? ((useDailyBias ? "DaySide " : "") + (useJudasWin ? "FakeMove " : "") + (useDispGate ? "StrongPush " : "") + (sbPlaybook ? "BestHour " : "") + (useIPDA ? "20/40Day " : "") + (useSmtES ? "Stocks " : "") + (useDeadHrs ? "SlowHrs " : "") + (useHTFDraw ? "TP-lines " : "") + (useAMD ? "DayStory " : "") + (aPlusMode ? "TopOnly" : "")) : ((useDailyBias ? "DayBias " : "") + (useJudasWin ? "Judas " : "") + (useDispGate ? "DispFVG " : "") + (sbPlaybook ? "SB " : "") + (useIPDA ? "IPDA " : "") + (useSmtES ? "ES " : "") + (useDeadHrs ? "DeadHrs " : "") + (useHTFDraw ? "Draw " : "") + (useAMD ? "AMD " : "") + (aPlusMode ? "A+" : "")), text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 33, useSimple ? "Desk rule" : "Flow", text_color = tblMute, text_size = size.tiny)
