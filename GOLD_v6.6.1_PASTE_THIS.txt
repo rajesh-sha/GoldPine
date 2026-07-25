@@ -1,13 +1,13 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Gold Liquidity Sweep PRO v6.6.1 — SMART LABEL MANAGER [Rajesh Sha]
-// Clearer merged labels: entry tip + cash-out tip (no duplicate price, no BUY/SELL clash).
+// Gold Liquidity Sweep PRO v6.6.2 — SMART LABEL MANAGER [Rajesh Sha]
+// Declutter: hide RND/EQ labels when they sit on a stronger level (Asia/PDH/open).
 // COMPILE-FIXED: clearPend; const plotshape; global table helpers (CE10156).
 //
 // USE: OANDA:XAUUSD, 1-minute. HTF non-repainting ([1]+lookahead_on).
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=6
-indicator("Gold Liquidity Sweep PRO v6.6.1 — Signals",
-     shorttitle = "GOLD LiqSweep PRO v6.6.1",
+indicator("Gold Liquidity Sweep PRO v6.6.2 — Signals",
+     shorttitle = "GOLD LiqSweep PRO v6.6.2",
      overlay = true,
      max_lines_count = 500,
      max_labels_count = 500,
@@ -193,6 +193,7 @@ grpVis = "Visuals / UX (same as before — tidy only)"
 useSimple      = input.bool(true, "Beginner mode: plain-English labels", group = grpVis)
 hiContrast     = input.bool(false, "Dark labels (optional)", group = grpVis, tooltip = "OFF = colored label pills with auto black/white text for contrast. ON = dark bg + white text on all.")
 showRoundLbs   = input.bool(true, "Show round-number labels", group = grpVis)
+smartDeclutter = input.bool(true, "Smart declutter (hide weak labels on same shelf)", group = grpVis, tooltip = "ON: if RND or twin-high/low sits on Asia/PDH/open, keep the stronger label only (line stays). Stops RND+EQL double tags.")
 pinLabels      = input.bool(true, "Pin level labels to right edge", group = grpVis)
 pinOffset      = input.int(8, "Label base offset from last bar", minval = 0, group = grpVis)
 pinStagger     = input.int(55, "Horizontal stagger when close in price (bars)", minval = 10, group = grpVis)
@@ -1749,14 +1750,13 @@ if showEliteVis and barstate.islast
     drawUpMerged := false
     drawDnMerged := false
 
-    // Reset open bases every bar (clean), then merge may append
+    // Reset open / level bases every bar (clean)
     if useOpens and not na(dayOpenLb) and not na(dayOpen)
         label.set_text(dayOpenLb, useSimple ? "TODAY OPEN " + str.tostring(dayOpen, format.mintick) + (na(dayOpenTime) ? "" : " · " + str.format_time(dayOpenTime, "dd MMM", sigTZ)) + " — returns here" : "Day-O " + str.tostring(dayOpen, format.mintick))
     if useOpens and not na(weekOpenLb) and not na(weekOpen)
         label.set_text(weekOpenLb, useSimple ? "WEEK OPEN " + str.tostring(weekOpen, format.mintick) + (na(weekOpenTime) ? "" : " · " + str.format_time(weekOpenTime, "dd MMM", sigTZ)) + " — returns here" : "Week-O " + str.tostring(weekOpen, format.mintick))
     if useOpens and not na(midOpenLb) and not na(midOpen)
         label.set_text(midOpenLb, useSimple ? "NY MIDNIGHT " + str.tostring(midOpen, format.mintick) + (na(midOpenTime) ? "" : " · " + str.format_time(midOpenTime, "dd MMM", TZ_NY)) + " — above=SELL · below=BUY" : "NY-Mid " + str.tostring(midOpen, format.mintick))
-    // Reset level label bases so merge tags do not stack across bars
     if array.size(staticLevels) > 0
         for L in staticLevels
             if not na(L.lb) and not na(L.price)
@@ -1768,8 +1768,71 @@ if showEliteVis and barstate.islast
     if array.size(roundLevels) > 0
         for L in roundLevels
             if not na(L.lb) and not na(L.price)
-                label.set_text(L.lb, f_levelBaseTxt(L))
+                label.set_text(L.lb, showRoundLbs ? f_levelBaseTxt(L) : "")
 
+    // Smart declutter: one visible tag per shelf (stronger keeps text; weaker line stays)
+    if smartDeclutter
+        // 1) Duplicate statics on same price (e.g. PDL = Week-L) → keep one, note the other
+        if array.size(staticLevels) > 1
+            for i = 0 to array.size(staticLevels) - 2
+                LiqLevel A = array.get(staticLevels, i)
+                if not na(A.lb) and not na(A.price) and str.length(label.get_text(A.lb)) > 0
+                    for j = i + 1 to array.size(staticLevels) - 1
+                        LiqLevel B = array.get(staticLevels, j)
+                        if not na(B.lb) and not na(B.price) and str.length(label.get_text(B.lb)) > 0 and f_nearPx(A.price, B.price)
+                            string ta = label.get_text(A.lb)
+                            if not str.contains(ta, B.name)
+                                label.set_text(A.lb, ta + " · =" + B.name)
+                            label.set_text(B.lb, "")
+        // 2) Hide twin EQ if on a static/open shelf; mark survivor
+        if array.size(dynLevels) > 0
+            for D in dynLevels
+                if not na(D.lb) and not na(D.price) and str.length(label.get_text(D.lb)) > 0
+                    bool hid = false
+                    if useOpens and (f_nearPx(D.price, dayOpen) or f_nearPx(D.price, weekOpen) or f_nearPx(D.price, midOpen))
+                        hid := true
+                    if not hid and array.size(staticLevels) > 0
+                        for S in staticLevels
+                            if not hid and not na(S.lb) and not na(S.price) and str.length(label.get_text(S.lb)) > 0 and f_nearPx(D.price, S.price)
+                                string ts = label.get_text(S.lb)
+                                if not str.contains(ts, "+twin")
+                                    label.set_text(S.lb, ts + (useSimple ? " · +twin" : " · EQ"))
+                                hid := true
+                    if hid
+                        label.set_text(D.lb, "")
+        // 3) Hide RND if on open/static/dyn shelf; mark survivor
+        if showRoundLbs and array.size(roundLevels) > 0
+            for R in roundLevels
+                if not na(R.lb) and not na(R.price) and str.length(label.get_text(R.lb)) > 0
+                    bool hidR = false
+                    if useOpens and (f_nearPx(R.price, dayOpen) or f_nearPx(R.price, weekOpen) or f_nearPx(R.price, midOpen))
+                        hidR := true
+                    if not hidR and array.size(staticLevels) > 0
+                        for S in staticLevels
+                            if not hidR and not na(S.lb) and not na(S.price) and str.length(label.get_text(S.lb)) > 0 and f_nearPx(R.price, S.price)
+                                string ts = label.get_text(S.lb)
+                                if not str.contains(ts, "+RND")
+                                    label.set_text(S.lb, ts + " · +RND")
+                                hidR := true
+                    if not hidR and array.size(dynLevels) > 0
+                        for D in dynLevels
+                            if not hidR and not na(D.lb) and not na(D.price) and str.length(label.get_text(D.lb)) > 0 and f_nearPx(R.price, D.price)
+                                string td = label.get_text(D.lb)
+                                if not str.contains(td, "+RND")
+                                    label.set_text(D.lb, td + " · +RND")
+                                hidR := true
+                    // Also hide RND next to another RND (keep nearer-to-spot or first)
+                    if not hidR and array.size(roundLevels) > 0
+                        for R2 in roundLevels
+                            if not hidR and not na(R2.lb) and R2.lb != R.lb and not na(R2.price) and str.length(label.get_text(R2.lb)) > 0 and f_nearPx(R.price, R2.price)
+                                // keep the one closer to current price
+                                if math.abs(R.price - close) >= math.abs(R2.price - close)
+                                    label.set_text(R.lb, "")
+                                    hidR := true
+                    if hidR
+                        label.set_text(R.lb, "")
+
+    // Cash-out merge AFTER declutter so tags land on the kept label
     if useHTFDraw and not na(drawBSL)
         drawUpMerged := f_mergeCashTag(drawBSL, true)
     if useHTFDraw and not na(drawSSL)
@@ -1817,7 +1880,8 @@ f_pinOne(label lb, line ln, float yy) =>
 f_collectPin(array<LiqLevel> arr, array<label> lbs, array<line> lns, array<float> ys) =>
     if array.size(arr) > 0
         for L in arr
-            if not na(L.lb) and not na(L.price)
+            // Skip decluttered (blank) labels — line can remain
+            if not na(L.lb) and not na(L.price) and str.length(label.get_text(L.lb)) > 0
                 array.push(lbs, L.lb)
                 array.push(lns, L.ln)
                 array.push(ys, L.price)
@@ -2129,7 +2193,7 @@ if showTable and barstate.islast
     color midMonCol = not useOpens or na(midOpen) ? color.gray : close < midOpen ? tblGood : close > midOpen ? tblBad : color.orange
 
     // ═══════════ LAYOUT (read top → bottom) ═══════════
-    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.6.1", text_color = color.white, bgcolor = color.navy, text_size = size.small)
+    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.6.2", text_color = color.white, bgcolor = color.navy, text_size = size.small)
     table.cell(t, 1, 0, hdrStatus, text_color = color.white, bgcolor = hdrBg, text_size = size.small)
 
     f_tblSec(t, 1, useSimple ? "1) GATE - can I trade now?" : "1) GATE")
@@ -2170,7 +2234,7 @@ if showTable and barstate.islast
     f_tblRow(t, 29, useSimple ? "Research edge (desk)" : "Edge", edgeTxt, tblMute, edgeCol)
     f_tblRow(t, 30, useSimple ? "Ideas today / last" : "Signals", str.tostring(signalsToday) + " / " + str.tostring(maxSigDay) + " · " + (lastTag == "" ? (useSimple ? "no idea yet" : "-") : lastTag), tblMute, tblKey)
     table.cell(t, 0, 31, useSimple ? "How entries work" : "Mode", text_color = tblMute, text_size = size.tiny)
-    table.cell(t, 1, 31, useSimple ? "Research → wait gate → sweep → flip → pullback | v6.6.1" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.6.1", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
+    table.cell(t, 1, 31, useSimple ? "Research → wait gate → sweep → flip → pullback | v6.6.2" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.6.2", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 32, useSimple ? "Tools ON" : "Edges", text_color = tblMute, text_size = size.tiny)
     table.cell(t, 1, 32, useSimple ? ((useDailyBias ? "DaySide " : "") + (useJudasWin ? "FakeMove " : "") + (useDispGate ? "StrongPush " : "") + (sbPlaybook ? "BestHour " : "") + (useIPDA ? "20/40Day " : "") + (useSmtES ? "Stocks " : "") + (useDeadHrs ? "SlowHrs " : "") + (useHTFDraw ? "TP-lines " : "") + (useAMD ? "DayStory " : "") + (aPlusMode ? "TopOnly" : "")) : ((useDailyBias ? "DayBias " : "") + (useJudasWin ? "Judas " : "") + (useDispGate ? "DispFVG " : "") + (sbPlaybook ? "SB " : "") + (useIPDA ? "IPDA " : "") + (useSmtES ? "ES " : "") + (useDeadHrs ? "DeadHrs " : "") + (useHTFDraw ? "Draw " : "") + (useAMD ? "AMD " : "") + (aPlusMode ? "A+" : "")), text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 33, useSimple ? "Desk rule" : "Flow", text_color = tblMute, text_size = size.tiny)
