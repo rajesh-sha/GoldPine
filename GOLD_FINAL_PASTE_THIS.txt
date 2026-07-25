@@ -1703,18 +1703,14 @@ sbStart     = inSB and not inSB[1]
 sessEnd     = not (inLondon or inNY or inSB) and (inLondon[1] or inNY[1] or inSB[1])
 // Dynamic labels (plotshape text cannot show Melb clock) — times in your sigTZ + NY
 if showBG and londonStart
-    label.new(bar_index, high, "LONDON OPEN — OK to trade
-Melb " + str.format_time(time, "HH:mm", sigTZ) + " · NY 02:00-05:00", style = label.style_label_down, color = color.blue, textcolor = color.white, size = size.tiny, yloc = yloc.abovebar)
+    label.new(bar_index, high, "LONDON OPEN — OK to trade\nMelb " + str.format_time(time, "HH:mm", sigTZ) + " · NY 02:00-05:00", style = label.style_label_down, color = color.blue, textcolor = color.white, size = size.tiny, yloc = yloc.abovebar)
 if showBG and nyStart
-    label.new(bar_index, high, "NEW YORK OPEN — OK to trade
-Melb " + str.format_time(time, "HH:mm", sigTZ) + " · NY 08:30-11:00", style = label.style_label_down, color = color.purple, textcolor = color.white, size = size.tiny, yloc = yloc.abovebar)
+    label.new(bar_index, high, "NEW YORK OPEN — OK to trade\nMelb " + str.format_time(time, "HH:mm", sigTZ) + " · NY 08:30-11:00", style = label.style_label_down, color = color.purple, textcolor = color.white, size = size.tiny, yloc = yloc.abovebar)
 if showBG and sbStart
-    label.new(bar_index, high, "BEST HOUR — OK to trade
-Melb " + str.format_time(time, "HH:mm", sigTZ) + " · NY 10:00-11:00", style = label.style_label_down, color = color.green, textcolor = color.white, size = size.tiny, yloc = yloc.abovebar)
+    label.new(bar_index, high, "BEST HOUR — OK to trade\nMelb " + str.format_time(time, "HH:mm", sigTZ) + " · NY 10:00-11:00", style = label.style_label_down, color = color.green, textcolor = color.white, size = size.tiny, yloc = yloc.abovebar)
 if showBG and sessEnd
     string whichEnd = inLondon[1] ? "London" : inSB[1] ? "Best hour" : "New York"
-    label.new(bar_index, high, whichEnd + " CLOSED — wait next
-Melb " + str.format_time(time, "HH:mm", sigTZ), style = label.style_label_down, color = color.gray, textcolor = color.white, size = size.tiny, yloc = yloc.abovebar)
+    label.new(bar_index, high, whichEnd + " CLOSED — wait next\nMelb " + str.format_time(time, "HH:mm", sigTZ), style = label.style_label_down, color = color.gray, textcolor = color.white, size = size.tiny, yloc = yloc.abovebar)
 
 plot(showBiasPlot and biasShow and not na(biasEma) ? biasEma : na, "4H Bias EMA", color = color.new(color.gray, 35), linewidth = 2)
 
