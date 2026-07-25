@@ -7,7 +7,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=6
 indicator("Gold Liquidity Sweep PRO v6.3.1 — Signals",
-     shorttitle = "GOLD LiqSweep PRO v6.3",
+     shorttitle = "GOLD LiqSweep PRO v6.3.1",
      overlay = true,
      max_lines_count = 500,
      max_labels_count = 500,
@@ -1979,7 +1979,7 @@ if showTable and barstate.islast
     f_tblRow(t, 27, useSimple ? "Ideas today / score" : "Signals/pts", str.tostring(signalsToday) + " / " + str.tostring(maxSigDay) + " | pts " + str.tostring(buyPts, "#") + "/" + str.tostring(sellPts, "#") + " | " + gradeL + "/" + gradeS, tblMute, tblKey)
     f_tblRow(t, 28, useSimple ? "Last trade idea" : "Last signal", lastTxt, tblMute, tblKey)
     table.cell(t, 0, 29, useSimple ? "How entries work" : "Mode", text_color = tblMute, text_size = size.tiny)
-    table.cell(t, 1, 29, useSimple ? "Sweep → flip → enter pullback | v6.3" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.3", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
+    table.cell(t, 1, 29, useSimple ? "Sweep → flip → enter pullback | v6.3.1" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.3.1", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 30, useSimple ? "Tools ON" : "Edges", text_color = tblMute, text_size = size.tiny)
     table.cell(t, 1, 30, useSimple ? ((useDailyBias ? "DaySide " : "") + (useJudasWin ? "FakeMove " : "") + (useDispGate ? "StrongPush " : "") + (sbPlaybook ? "BestHour " : "") + (useIPDA ? "20/40Day " : "") + (useSmtES ? "Stocks " : "") + (useDeadHrs ? "SlowHrs " : "") + (useHTFDraw ? "TP-lines " : "") + (useAMD ? "DayStory " : "") + (aPlusMode ? "TopOnly" : "")) : ((useDailyBias ? "DayBias " : "") + (useJudasWin ? "Judas " : "") + (useDispGate ? "DispFVG " : "") + (sbPlaybook ? "SB " : "") + (useIPDA ? "IPDA " : "") + (useSmtES ? "ES " : "") + (useDeadHrs ? "DeadHrs " : "") + (useHTFDraw ? "Draw " : "") + (useAMD ? "AMD " : "") + (aPlusMode ? "A+" : "")), text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 31, useSimple ? "Read table order" : "Flow", text_color = tblMute, text_size = size.tiny)
