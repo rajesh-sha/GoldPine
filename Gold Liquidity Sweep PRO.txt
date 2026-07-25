@@ -1,5 +1,6 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Gold Liquidity Sweep PRO v3 — INSTITUTIONAL SIGNALS [Rajesh Sha]
+// Gold Liquidity Sweep PRO v3.1 — INSTITUTIONAL SIGNALS [Rajesh Sha]
+// COMPILE-FIXED: no f_resetPend() — if your editor still shows f_resetPend, you pasted the OLD file.
 //
 // Indicator-only companion of the strategy file.
 //   SAME engine as v2 (PDH/PDL, PWH/PWL, Asian range, EQH/EQL, live Day/Week
@@ -22,8 +23,8 @@
 // All HTF data non-repainting ([1] + lookahead_on).
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=6
-indicator("Gold Liquidity Sweep PRO v3 — Signals",
-     shorttitle = "GOLD LiqSweep PRO",
+indicator("Gold Liquidity Sweep PRO v3.1 — Signals",
+     shorttitle = "GOLD LiqSweep PRO v3.1",
      overlay = true,
      max_lines_count = 500,
      max_labels_count = 500,
@@ -1059,7 +1060,7 @@ if showTable and barstate.islast
          (londonLowSweptNY or londonHighSweptNY ? (useSimple ? (asiaLowSweptLondon or asiaHighSweptLondon ? " · " : "") + "NY swept London" : (asiaLowSweptLondon or asiaHighSweptLondon ? " · " : "") + "NY>London") : "")
     hierTxt := hierTxt == "" ? (useSimple ? "No session hunt yet" : "None") : hierTxt
 
-    table.cell(t, 0, 0, "GOLD LiqSweep PRO v3", text_color = color.white, bgcolor = color.navy, text_size = size.small)
+    table.cell(t, 0, 0, "GOLD LiqSweep PRO v3.1", text_color = color.white, bgcolor = color.navy, text_size = size.small)
     table.cell(t, 1, 0, standAside ? (useSimple ? "DO NOT TRADE" : "STAND ASIDE") : (useSimple ? "WATCHING" : "SCANNING"), text_color = color.white, bgcolor = standAside ? color.red : color.new(color.green, 30), text_size = size.small)
     table.cell(t, 0, 1, useSimple ? "Big trend (4H)" : "Bias", text_color = color.black, text_size = size.small)
     table.cell(t, 1, 1, biasTxt, text_color = biasCol, text_size = size.small)
