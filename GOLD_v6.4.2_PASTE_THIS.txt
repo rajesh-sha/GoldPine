@@ -1,13 +1,13 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Gold Liquidity Sweep PRO v6.5.2 — NO OVERLAP LABELS [Rajesh Sha]
-// Wide merge + separate cash-out lane (far right + vertical offset).
+// Gold Liquidity Sweep PRO v6.6 — SMART LABEL MANAGER [Rajesh Sha]
+// One label per price shelf: cash-out merges into nearest open/RND/level; no stacked tags.
 // COMPILE-FIXED: clearPend; const plotshape; global table helpers (CE10156).
 //
 // USE: OANDA:XAUUSD, 1-minute. HTF non-repainting ([1]+lookahead_on).
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=6
-indicator("Gold Liquidity Sweep PRO v6.5.2 — Signals",
-     shorttitle = "GOLD LiqSweep PRO v6.5.2",
+indicator("Gold Liquidity Sweep PRO v6.6 — Signals",
+     shorttitle = "GOLD LiqSweep PRO v6.6",
      overlay = true,
      max_lines_count = 500,
      max_labels_count = 500,
@@ -331,7 +331,7 @@ method refresh(LiqLevel L, float newPrice) =>
         L.pool := side
         // Keep previous full wording — tidy via pin stagger only
         // Plain English action tip on every level
-        string tip = not useSimple ? " [" + side + "]" : L.kind == "high" ? " | spike above here = look SELL" : " | spike below here = look BUY"
+        string tip = not useSimple ? " [" + side + "]" : L.kind == "high" ? " | up=SELL" : " | down=BUY"
         string txt = L.name + "  " + str.tostring(newPrice, format.mintick) + tip
         L.ln := line.new(bar_index, newPrice, bar_index + 1, newPrice, extend = extend.right, color = L.col, width = 2)
         L.lb := label.new(bar_index, newPrice, txt, style = label.style_label_right, color = f_lblBg(L.col), textcolor = f_lblTx(L.col), size = size.small)
@@ -633,7 +633,7 @@ f_addRound(px, isHigh) =>
     L.ln := line.new(bar_index, px, bar_index + 1, px, extend = extend.right, color = color.new(col, 35), width = 1, style = line.style_dotted)
     // Keep previous RND wording — never remove; tidy via pin stagger only
     if showRoundLbs
-        string tip = useSimple ? (isHigh ? " round number HIGH — spike above = look SELL · BUY trades can cash out here" : " round number LOW — spike below = look BUY · SELL trades can cash out here") : " [" + L.pool + "]"
+        string tip = useSimple ? (isHigh ? " RND high — spike up=SELL" : " RND low — spike down=BUY") : " [" + L.pool + "]"
         L.lb := label.new(bar_index, px, nm + tip, style = label.style_label_right, color = f_lblBg(col), textcolor = f_lblTx(col), size = size.small)
     array.push(roundLevels, L)
 
@@ -663,7 +663,7 @@ f_addDyn(nm, kind, px, col) =>
     L.tier  := "INT"  // EQH/EQL = internal inducement liquidity
     L.ln    := line.new(bar_index - pivLen, px, bar_index, px, extend = extend.right, color = col, width = 1, style = line.style_dashed)
     // Keep previous EQ wording
-    string dtip = not useSimple ? nm + " [" + L.pool + "/INT]" : nm + (kind == "high" ? " same high twice — spike above = look SELL" : " same low twice — spike below = look BUY")
+    string dtip = not useSimple ? nm + " [" + L.pool + "/INT]" : nm + (kind == "high" ? " twin high — up=SELL" : " twin low — down=BUY")
     L.lb := label.new(bar_index, px, dtip, style = label.style_label_right, color = f_lblBg(col), textcolor = f_lblTx(col), size = size.small)
     array.push(dynLevels, L)
 
@@ -1659,7 +1659,7 @@ if showStochLines
     if k15 >= stochOB and not (k15[1] >= stochOB)
         label.new(bar_index, high + stOff * 1.8, useSimple ? "Buyers tired 15m (SELL side ready)" : "15m OB", style = label.style_label_lower_right, color = f_lblBg(color.yellow), textcolor = color.black, size = size.tiny)
 
-// ═══════════════════════════ CASH-OUT LINES (wide merge + far lane = no overlap) ═══════════════════════════
+// ═══════════════════════════ CASH-OUT LINES (smart merge into nearest label) ═══════════════════════════
 var line drawUpLn = na
 var line drawDnLn = na
 var label drawUpLb = na
@@ -1667,9 +1667,68 @@ var label drawDnLb = na
 var bool drawUpMerged = false
 var bool drawDnMerged = false
 
-// Wide "same shelf" test — labels overlap visually long before prices are equal
+// Same visual shelf — wide enough that long labels won't stack
 f_nearPx(float a, float b) =>
-    not na(a) and not na(b) and math.abs(a - b) <= math.max(atrVal * 2.5, close * 0.0004)
+    not na(a) and not na(b) and math.abs(a - b) <= math.max(atrVal * 2.5, close * 0.0005)
+
+// Rebuild a level's short base text (avoids appending forever)
+f_levelBaseTxt(LiqLevel L) =>
+    useSimple ? (L.name + " " + str.tostring(L.price, format.mintick) + (L.kind == "high" ? " | up=SELL" : " | down=BUY")) : (L.name + " [" + L.pool + "] " + str.tostring(L.price, format.mintick))
+
+// Try merge cash-out tag into the nearest existing label on that shelf. Returns true if merged.
+f_mergeCashTag(float cashPx, bool isBuy) =>
+    bool merged = false
+    string tag = useSimple ? (isBuy ? " · BUY↑" : " · SELL↓") : (isBuy ? " · BSL" : " · SSL")
+    float bestDist = 1e12
+    label bestLb = na
+    string bestBase = ""
+    if useOpens
+        if not na(dayOpenLb) and f_nearPx(cashPx, dayOpen)
+            float d = math.abs(cashPx - dayOpen)
+            if d < bestDist
+                bestDist := d
+                bestLb := dayOpenLb
+                bestBase := useSimple ? "TODAY OPEN " + str.tostring(dayOpen, format.mintick) + (na(dayOpenTime) ? "" : " · " + str.format_time(dayOpenTime, "dd MMM", sigTZ)) + " — returns here" : "Day-O " + str.tostring(dayOpen, format.mintick)
+        if not na(weekOpenLb) and f_nearPx(cashPx, weekOpen)
+            float d = math.abs(cashPx - weekOpen)
+            if d < bestDist
+                bestDist := d
+                bestLb := weekOpenLb
+                bestBase := useSimple ? "WEEK OPEN " + str.tostring(weekOpen, format.mintick) + (na(weekOpenTime) ? "" : " · " + str.format_time(weekOpenTime, "dd MMM", sigTZ)) + " — returns here" : "Week-O " + str.tostring(weekOpen, format.mintick)
+        if not na(midOpenLb) and f_nearPx(cashPx, midOpen)
+            float d = math.abs(cashPx - midOpen)
+            if d < bestDist
+                bestDist := d
+                bestLb := midOpenLb
+                bestBase := useSimple ? "NY MIDNIGHT " + str.tostring(midOpen, format.mintick) + (na(midOpenTime) ? "" : " · " + str.format_time(midOpenTime, "dd MMM", TZ_NY)) + " — above=SELL · below=BUY" : "NY-Mid " + str.tostring(midOpen, format.mintick)
+    if array.size(staticLevels) > 0
+        for L in staticLevels
+            if not na(L.lb) and not na(L.price) and f_nearPx(cashPx, L.price)
+                float d = math.abs(cashPx - L.price)
+                if d < bestDist
+                    bestDist := d
+                    bestLb := L.lb
+                    bestBase := f_levelBaseTxt(L)
+    if array.size(dynLevels) > 0
+        for L in dynLevels
+            if not na(L.lb) and not na(L.price) and f_nearPx(cashPx, L.price)
+                float d = math.abs(cashPx - L.price)
+                if d < bestDist
+                    bestDist := d
+                    bestLb := L.lb
+                    bestBase := f_levelBaseTxt(L)
+    if array.size(roundLevels) > 0
+        for L in roundLevels
+            if not na(L.lb) and not na(L.price) and f_nearPx(cashPx, L.price)
+                float d = math.abs(cashPx - L.price)
+                if d < bestDist
+                    bestDist := d
+                    bestLb := L.lb
+                    bestBase := f_levelBaseTxt(L)
+    if not na(bestLb)
+        label.set_text(bestLb, bestBase + tag)
+        merged := true
+    merged
 
 if showEliteVis and barstate.islast
     if not na(drawUpLn)
@@ -1687,45 +1746,42 @@ if showEliteVis and barstate.islast
     drawUpMerged := false
     drawDnMerged := false
 
-    // Short open labels + merge cash-out into them when on the same shelf
+    // Reset open bases every bar (clean), then merge may append
     if useOpens and not na(dayOpenLb) and not na(dayOpen)
-        string dayBase = useSimple ? "TODAY OPEN " + str.tostring(dayOpen, format.mintick) + (na(dayOpenTime) ? "" : " · " + str.format_time(dayOpenTime, "dd MMM", sigTZ)) + " — returns here (not entry)" : "Day-O  " + str.tostring(dayOpen, format.mintick)
-        bool dayBuy = useHTFDraw and f_nearPx(drawBSL, dayOpen)
-        bool daySell = useHTFDraw and f_nearPx(drawSSL, dayOpen)
-        if dayBuy
-            drawUpMerged := true
-        if daySell
-            drawDnMerged := true
-        label.set_text(dayOpenLb, dayBase + (dayBuy ? (useSimple ? " · BUY cash-out" : " · BSL") : "") + (daySell ? (useSimple ? " · SELL cash-out" : " · SSL") : ""))
+        label.set_text(dayOpenLb, useSimple ? "TODAY OPEN " + str.tostring(dayOpen, format.mintick) + (na(dayOpenTime) ? "" : " · " + str.format_time(dayOpenTime, "dd MMM", sigTZ)) + " — returns here" : "Day-O " + str.tostring(dayOpen, format.mintick))
     if useOpens and not na(weekOpenLb) and not na(weekOpen)
-        string weekBase = useSimple ? "WEEK OPEN " + str.tostring(weekOpen, format.mintick) + (na(weekOpenTime) ? "" : " · " + str.format_time(weekOpenTime, "dd MMM", sigTZ)) + " — returns here (not entry)" : "Week-O  " + str.tostring(weekOpen, format.mintick)
-        bool weekBuy = useHTFDraw and f_nearPx(drawBSL, weekOpen)
-        bool weekSell = useHTFDraw and f_nearPx(drawSSL, weekOpen)
-        if weekBuy
-            drawUpMerged := true
-        if weekSell
-            drawDnMerged := true
-        label.set_text(weekOpenLb, weekBase + (weekBuy ? (useSimple ? " · BUY cash-out" : " · BSL") : "") + (weekSell ? (useSimple ? " · SELL cash-out" : " · SSL") : ""))
+        label.set_text(weekOpenLb, useSimple ? "WEEK OPEN " + str.tostring(weekOpen, format.mintick) + (na(weekOpenTime) ? "" : " · " + str.format_time(weekOpenTime, "dd MMM", sigTZ)) + " — returns here" : "Week-O " + str.tostring(weekOpen, format.mintick))
     if useOpens and not na(midOpenLb) and not na(midOpen)
-        string midBase = useSimple ? "NY MIDNIGHT " + str.tostring(midOpen, format.mintick) + (na(midOpenTime) ? "" : " · " + str.format_time(midOpenTime, "dd MMM", TZ_NY)) + " — above=SELL day · below=BUY day" : "NY-Mid  " + str.tostring(midOpen, format.mintick)
-        bool midBuy = useHTFDraw and f_nearPx(drawBSL, midOpen)
-        bool midSell = useHTFDraw and f_nearPx(drawSSL, midOpen)
-        if midBuy
-            drawUpMerged := true
-        if midSell
-            drawDnMerged := true
-        label.set_text(midOpenLb, midBase + (midBuy ? (useSimple ? " · BUY cash-out" : " · BSL") : "") + (midSell ? (useSimple ? " · SELL cash-out" : " · SSL") : ""))
+        label.set_text(midOpenLb, useSimple ? "NY MIDNIGHT " + str.tostring(midOpen, format.mintick) + (na(midOpenTime) ? "" : " · " + str.format_time(midOpenTime, "dd MMM", TZ_NY)) + " — above=SELL · below=BUY" : "NY-Mid " + str.tostring(midOpen, format.mintick))
+    // Reset level label bases so merge tags do not stack across bars
+    if array.size(staticLevels) > 0
+        for L in staticLevels
+            if not na(L.lb) and not na(L.price)
+                label.set_text(L.lb, f_levelBaseTxt(L))
+    if array.size(dynLevels) > 0
+        for L in dynLevels
+            if not na(L.lb) and not na(L.price)
+                label.set_text(L.lb, f_levelBaseTxt(L))
+    if array.size(roundLevels) > 0
+        for L in roundLevels
+            if not na(L.lb) and not na(L.price)
+                label.set_text(L.lb, f_levelBaseTxt(L))
 
-    // Dashed line always. Separate short label ONLY if not merged — park in far-right lane with Y offset
-    int cashLane = pinOffset + pinStagger * 3
+    if useHTFDraw and not na(drawBSL)
+        drawUpMerged := f_mergeCashTag(drawBSL, true)
+    if useHTFDraw and not na(drawSSL)
+        drawDnMerged := f_mergeCashTag(drawSSL, false)
+
+    // Lines always. Extra label ONLY if nothing on that shelf to merge into.
+    int cashLane = pinOffset + pinStagger * 4
     if useHTFDraw and not na(drawBSL)
         drawUpLn := line.new(bar_index - 5, drawBSL, bar_index + cashLane, drawBSL, color = color.new(color.red, 40), width = 2, style = line.style_dashed)
         if not drawUpMerged
-            drawUpLb := label.new(bar_index + cashLane, drawBSL + atrVal * 1.1, useSimple ? "BUY↑ cash-out " + str.tostring(drawBSL, format.mintick) : "BSL " + str.tostring(drawBSL, format.mintick), style = label.style_label_left, color = f_lblBg(color.red), textcolor = f_lblTx(color.red), size = size.tiny)
+            drawUpLb := label.new(bar_index + cashLane, drawBSL + atrVal * 1.2, useSimple ? "BUY↑ " + str.tostring(drawBSL, format.mintick) : "BSL " + str.tostring(drawBSL, format.mintick), style = label.style_label_left, color = f_lblBg(color.red), textcolor = f_lblTx(color.red), size = size.tiny)
     if useHTFDraw and not na(drawSSL)
         drawDnLn := line.new(bar_index - 5, drawSSL, bar_index + cashLane, drawSSL, color = color.new(color.green, 40), width = 2, style = line.style_dashed)
         if not drawDnMerged
-            drawDnLb := label.new(bar_index + cashLane, drawSSL - atrVal * 1.1, useSimple ? "SELL↓ cash-out " + str.tostring(drawSSL, format.mintick) : "SSL " + str.tostring(drawSSL, format.mintick), style = label.style_label_left, color = f_lblBg(color.green), textcolor = f_lblTx(color.green), size = size.tiny)
+            drawDnLb := label.new(bar_index + cashLane, drawSSL - atrVal * 1.2, useSimple ? "SELL↓ " + str.tostring(drawSSL, format.mintick) : "SSL " + str.tostring(drawSSL, format.mintick), style = label.style_label_left, color = f_lblBg(color.green), textcolor = f_lblTx(color.green), size = size.tiny)
 
 // ═══════════════════════════ SMART LABEL PINNING (anti-overlap UX) ═══════════════════════════
 // Sort-free cluster bump: each new label near an existing one gets a higher
@@ -1829,21 +1885,21 @@ if pinLabels and barstate.islast
     if n > 0
         for i = 0 to n - 1
             f_pinOne(array.get(allLbs, i), array.get(allLns, i), array.get(allYs, i))
-    // Re-park cash-out tags in far lane so they never sit on TODAY/WEEK OPEN text
+    // Re-park any unmerged cash-out tags far right (never on RND/OPEN lane)
     if not na(drawUpLb) and not na(drawBSL)
-        label.set_x(drawUpLb, bar_index + pinOffset + pinStagger * 3)
-        label.set_y(drawUpLb, drawBSL + atrVal * 1.1)
+        label.set_x(drawUpLb, bar_index + pinOffset + pinStagger * 4)
+        label.set_y(drawUpLb, drawBSL + atrVal * 1.2)
         label.set_style(drawUpLb, label.style_label_left)
         if not na(drawUpLn)
             line.set_extend(drawUpLn, extend.none)
-            line.set_x2(drawUpLn, bar_index + pinOffset + pinStagger * 3)
+            line.set_x2(drawUpLn, bar_index + pinOffset + pinStagger * 4)
     if not na(drawDnLb) and not na(drawSSL)
-        label.set_x(drawDnLb, bar_index + pinOffset + pinStagger * 3)
-        label.set_y(drawDnLb, drawSSL - atrVal * 1.1)
+        label.set_x(drawDnLb, bar_index + pinOffset + pinStagger * 4)
+        label.set_y(drawDnLb, drawSSL - atrVal * 1.2)
         label.set_style(drawDnLb, label.style_label_left)
         if not na(drawDnLn)
             line.set_extend(drawDnLn, extend.none)
-            line.set_x2(drawDnLn, bar_index + pinOffset + pinStagger * 3)
+            line.set_x2(drawDnLn, bar_index + pinOffset + pinStagger * 4)
 
 // ═══════════════════════════ TABLE — research sequence (v6.0) ═══════════════════════════
 // Read top → bottom: 1 GATE → 2 BIAS → 3 LIQUIDITY → 4 CONFIRM → 5 DECISION → 6 LOG
@@ -2070,7 +2126,7 @@ if showTable and barstate.islast
     color midMonCol = not useOpens or na(midOpen) ? color.gray : close < midOpen ? tblGood : close > midOpen ? tblBad : color.orange
 
     // ═══════════ LAYOUT (read top → bottom) ═══════════
-    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.5.2", text_color = color.white, bgcolor = color.navy, text_size = size.small)
+    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.6", text_color = color.white, bgcolor = color.navy, text_size = size.small)
     table.cell(t, 1, 0, hdrStatus, text_color = color.white, bgcolor = hdrBg, text_size = size.small)
 
     f_tblSec(t, 1, useSimple ? "1) GATE - can I trade now?" : "1) GATE")
@@ -2111,7 +2167,7 @@ if showTable and barstate.islast
     f_tblRow(t, 29, useSimple ? "Research edge (desk)" : "Edge", edgeTxt, tblMute, edgeCol)
     f_tblRow(t, 30, useSimple ? "Ideas today / last" : "Signals", str.tostring(signalsToday) + " / " + str.tostring(maxSigDay) + " · " + (lastTag == "" ? (useSimple ? "no idea yet" : "-") : lastTag), tblMute, tblKey)
     table.cell(t, 0, 31, useSimple ? "How entries work" : "Mode", text_color = tblMute, text_size = size.tiny)
-    table.cell(t, 1, 31, useSimple ? "Research → wait gate → sweep → flip → pullback | v6.5.2" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.5.2", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
+    table.cell(t, 1, 31, useSimple ? "Research → wait gate → sweep → flip → pullback | v6.6" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.6", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 32, useSimple ? "Tools ON" : "Edges", text_color = tblMute, text_size = size.tiny)
     table.cell(t, 1, 32, useSimple ? ((useDailyBias ? "DaySide " : "") + (useJudasWin ? "FakeMove " : "") + (useDispGate ? "StrongPush " : "") + (sbPlaybook ? "BestHour " : "") + (useIPDA ? "20/40Day " : "") + (useSmtES ? "Stocks " : "") + (useDeadHrs ? "SlowHrs " : "") + (useHTFDraw ? "TP-lines " : "") + (useAMD ? "DayStory " : "") + (aPlusMode ? "TopOnly" : "")) : ((useDailyBias ? "DayBias " : "") + (useJudasWin ? "Judas " : "") + (useDispGate ? "DispFVG " : "") + (sbPlaybook ? "SB " : "") + (useIPDA ? "IPDA " : "") + (useSmtES ? "ES " : "") + (useDeadHrs ? "DeadHrs " : "") + (useHTFDraw ? "Draw " : "") + (useAMD ? "AMD " : "") + (aPlusMode ? "A+" : "")), text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 33, useSimple ? "Desk rule" : "Flow", text_color = tblMute, text_size = size.tiny)
