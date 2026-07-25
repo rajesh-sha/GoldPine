@@ -1528,29 +1528,28 @@ if pinLabels and barstate.islast
 
 // ═══════════════════════════ TABLE — research sequence (v5.4) ═══════════════════════════
 // Read top → bottom: 1 GATE → 2 BIAS → 3 LIQUIDITY → 4 CONFIRM → 5 DECISION → 6 LOG
+// NOTE: table helpers MUST be global — Pine forbids function defs inside if (CE10156)
 var table t = table.new(position.top_right, 2, 30, bgcolor = color.new(color.white, 10), border_color = color.black, border_width = 1)
+
+f_tblSec(table tbl, int r, string title) =>
+    // No merge_cells (avoids repeat-merge runtime errors) — both cells share navy header look
+    table.cell(tbl, 0, r, title, text_color = color.white, bgcolor = color.navy, text_size = size.tiny, text_halign = text.align_left)
+    table.cell(tbl, 1, r, " ", text_color = color.white, bgcolor = color.navy, text_size = size.tiny)
+
+f_tblRow(table tbl, int r, string k, string v, color kc, color vc) =>
+    table.cell(tbl, 0, r, k, text_color = kc, text_size = size.small)
+    table.cell(tbl, 1, r, v, text_color = vc, text_size = size.small)
 
 if showTable and barstate.islast
     color tblKey  = lightTable ? color.black : color.rgb(226, 232, 240)
     color tblMute = lightTable ? color.black : color.rgb(148, 163, 184)
     color tblGood = lightTable ? color.green : color.lime
     color tblBad  = lightTable ? color.red : color.rgb(248, 113, 113)
-    color secBg   = color.navy
-    color secFg   = color.white
     table.set_bgcolor(t, lightTable ? color.new(color.white, 10) : color.new(color.rgb(15, 23, 42), 5))
     table.set_border_color(t, lightTable ? color.black : color.new(color.rgb(148, 163, 184), 40))
 
-    f_sec(int r, string title) =>
-        table.cell(t, 0, r, title, text_color = secFg, bgcolor = secBg, text_size = size.tiny, text_halign = text.align_left)
-        table.cell(t, 1, r, "", text_color = secFg, bgcolor = secBg, text_size = size.tiny)
-        table.merge_cells(t, 0, r, 1, r)
-
-    f_row(int r, string k, string v, color vc) =>
-        table.cell(t, 0, r, k, text_color = tblMute, text_size = size.small)
-        table.cell(t, 1, r, v, text_color = vc, text_size = size.small)
-
     // ── prep strings ──
-    string biasDir = na(biasEma) ? (useSimple ? "Loading 4H…" : "n/a") : biasUp4h ? (useSimple ? "UP — buying safer" : "Bullish") : biasDn4h ? (useSimple ? "DOWN — selling safer" : "Bearish") : (useSimple ? "Flat at EMA" : "Flat")
+    string biasDir = na(biasEma) ? (useSimple ? "Loading 4H..." : "n/a") : biasUp4h ? (useSimple ? "UP - buying safer" : "Bullish") : biasDn4h ? (useSimple ? "DOWN - selling safer" : "Bearish") : (useSimple ? "Flat at EMA" : "Flat")
     string biasFilt = biasMode == "EMA Filter" ? (useSimple ? " · filter ON" : " · veto") : biasMode == "Show only (no veto)" ? (useSimple ? " · filter off" : " · no veto") : ""
     string biasTxt = not biasShow ? (useSimple ? "Hidden" : "Off") : biasDir + biasFilt
     color  biasCol = not biasShow or na(biasEma) ? color.gray : biasUp4h ? tblGood : biasDn4h ? tblBad : color.orange
@@ -1714,44 +1713,44 @@ if showTable and barstate.islast
     table.cell(t, 0, 0, "GOLD LiqSweep PRO v5.4", text_color = color.white, bgcolor = color.navy, text_size = size.small)
     table.cell(t, 1, 0, hdrStatus, text_color = color.white, bgcolor = hdrBg, text_size = size.small)
 
-    f_sec(1, useSimple ? "① GATE — can I trade now?" : "1) GATE")
-    f_row(2, useSimple ? "News" : "News", newsTxt, newsCol)
-    f_row(3, useSimple ? "Time / session" : "Session", sessTxt + (useTimeConf and timeConf ? (useSimple ? " · :00/:30" : " · time✓") : ""), sessCol)
-    f_row(4, useSimple ? "Day range used" : "ADR used", adrTxt, adrCol)
+    f_tblSec(t, 1, useSimple ? "1) GATE - can I trade now?" : "1) GATE")
+    f_tblRow(t, 2, useSimple ? "News" : "News", newsTxt, tblMute, newsCol)
+    f_tblRow(t, 3, useSimple ? "Time / session" : "Session", sessTxt + (useTimeConf and timeConf ? (useSimple ? " | :00/:30" : " | time OK") : ""), tblMute, sessCol)
+    f_tblRow(t, 4, useSimple ? "Day range used" : "ADR used", adrTxt, tblMute, adrCol)
 
-    f_sec(5, useSimple ? "② BIAS — which side is safer?" : "2) BIAS")
-    f_row(6, useSimple ? "Big trend (4H)" : "4H bias", biasTxt, biasCol)
-    f_row(7, useSimple ? "Value area" : "Prem/Disc", pdTxt + (pureLiq ? (useSimple ? " · pure ON" : " · pure") : ""), pdCol)
-    f_row(8, useSimple ? "Power of 3 (AMD)" : "AMD", amdTxt, amdCol)
+    f_tblSec(t, 5, useSimple ? "2) BIAS - which side is safer?" : "2) BIAS")
+    f_tblRow(t, 6, useSimple ? "Big trend (4H)" : "4H bias", biasTxt, tblMute, biasCol)
+    f_tblRow(t, 7, useSimple ? "Value area" : "Prem/Disc", pdTxt + (pureLiq ? (useSimple ? " | pure ON" : " | pure") : ""), tblMute, pdCol)
+    f_tblRow(t, 8, useSimple ? "Power of 3 (AMD)" : "AMD", amdTxt, tblMute, amdCol)
 
-    f_sec(9, useSimple ? "③ LIQUIDITY — where are the pools?" : "3) LIQUIDITY")
-    f_row(10, useSimple ? "Draw on liquidity" : "Draw", drawTxt, drawCol)
-    f_row(11, useSimple ? "Yesterday H / L" : "PDH/PDL", ydayTxt, tblKey)
-    f_row(12, useSimple ? "Today H / L" : "Day H/L", dayLiveTxt, tblKey)
-    f_row(13, useSimple ? "Week H / L" : "Week H/L", weekLiveTxt, tblKey)
+    f_tblSec(t, 9, useSimple ? "3) LIQUIDITY - where are the pools?" : "3) LIQUIDITY")
+    f_tblRow(t, 10, useSimple ? "Draw on liquidity" : "Draw", drawTxt, tblMute, drawCol)
+    f_tblRow(t, 11, useSimple ? "Yesterday H / L" : "PDH/PDL", ydayTxt, tblMute, tblKey)
+    f_tblRow(t, 12, useSimple ? "Today H / L" : "Day H/L", dayLiveTxt, tblMute, tblKey)
+    f_tblRow(t, 13, useSimple ? "Week H / L" : "Week H/L", weekLiveTxt, tblMute, tblKey)
 
-    f_sec(14, useSimple ? "④ CONFIRM — evidence for the side" : "4) CONFIRM")
-    f_row(15, useSimple ? "SMT (Ag + DXY)" : "SMT", smtTxt, smtCol)
-    f_row(16, useSimple ? "Session hunt (Judas)" : "Hierarchy", hierTxt, hierCol)
-    f_row(17, useSimple ? "Tired meter 5m/15m" : "StochRSI", stochTxt + stochHint, stochCol)
-    f_row(18, useSimple ? "HTF POI / extras" : "HTF POI", poiTxt + poiExtra, poiCol)
-    f_row(19, useSimple ? "Active setup" : "Pending", pendTxt, pendCol)
+    f_tblSec(t, 14, useSimple ? "4) CONFIRM - evidence for the side" : "4) CONFIRM")
+    f_tblRow(t, 15, useSimple ? "SMT (Ag + DXY)" : "SMT", smtTxt, tblMute, smtCol)
+    f_tblRow(t, 16, useSimple ? "Session hunt (Judas)" : "Hierarchy", hierTxt, tblMute, hierCol)
+    f_tblRow(t, 17, useSimple ? "Tired meter 5m/15m" : "StochRSI", stochTxt + stochHint, tblMute, stochCol)
+    f_tblRow(t, 18, useSimple ? "HTF POI / extras" : "HTF POI", poiTxt + poiExtra, tblMute, poiCol)
+    f_tblRow(t, 19, useSimple ? "Active setup" : "Pending", pendTxt, tblMute, pendCol)
 
-    f_sec(20, useSimple ? "⑤ DECISION — what to do" : "5) DECISION")
-    f_row(21, useSimple ? "Can I BUY?" : "BUY", blkL, buyDecCol)
-    f_row(22, useSimple ? "Can I SELL?" : "SELL", blkS, sellDecCol)
+    f_tblSec(t, 20, useSimple ? "5) DECISION - what to do" : "5) DECISION")
+    f_tblRow(t, 21, useSimple ? "Can I BUY?" : "BUY", blkL, tblMute, buyDecCol)
+    f_tblRow(t, 22, useSimple ? "Can I SELL?" : "SELL", blkS, tblMute, sellDecCol)
     table.cell(t, 0, 23, useSimple ? "Next action" : "Action", text_color = color.white, bgcolor = color.navy, text_size = size.small)
     table.cell(t, 1, 23, actTxt, text_color = actCol, text_size = size.small)
 
-    f_sec(24, useSimple ? "⑥ LOG — score & mode" : "6) LOG")
-    f_row(25, useSimple ? "Ideas today / pts" : "Signals/pts", str.tostring(signalsToday) + " / " + str.tostring(maxSigDay) + " · pts " + str.tostring(buyPts, "#") + "/" + str.tostring(sellPts, "#") + " · " + gradeL + "/" + gradeS, tblKey)
-    f_row(26, useSimple ? "Last trade idea" : "Last signal", lastTxt, tblKey)
+    f_tblSec(t, 24, useSimple ? "6) LOG - score and mode" : "6) LOG")
+    f_tblRow(t, 25, useSimple ? "Ideas today / pts" : "Signals/pts", str.tostring(signalsToday) + " / " + str.tostring(maxSigDay) + " | pts " + str.tostring(buyPts, "#") + "/" + str.tostring(sellPts, "#") + " | " + gradeL + "/" + gradeS, tblMute, tblKey)
+    f_tblRow(t, 26, useSimple ? "Last trade idea" : "Last signal", lastTxt, tblMute, tblKey)
     table.cell(t, 0, 27, useSimple ? "Entry mode" : "Mode", text_color = tblMute, text_size = size.tiny)
-    table.cell(t, 1, 27, entryMode + (proMode ? " · MSS+CE/OTE" : "") + (pureLiq ? " · PURE" : "") + (aPlusMode ? " · A+" : ""), text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
+    table.cell(t, 1, 27, entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : ""), text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 28, useSimple ? "Edges ON" : "Edges", text_color = tblMute, text_size = size.tiny)
     table.cell(t, 1, 28, (useHTFDraw ? "Draw " : "") + (useHTFPOI ? "POI " : "") + (useAMD ? "AMD " : "") + (useIFVG ? "IFVG " : "") + (useUnicorn ? "UNI " : "") + (useNDOG ? "GAP " : "") + (useBPR ? "BPR " : "") + (aPlusMode ? "A+" : ""), text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 29, useSimple ? "Research order" : "Flow", text_color = tblMute, text_size = size.tiny)
-    table.cell(t, 1, 29, useSimple ? "Gate → Bias → Liquidity → Confirm → Decision" : "G→B→L→C→D", text_color = color.gray, text_size = size.tiny)
+    table.cell(t, 1, 29, useSimple ? "Gate -> Bias -> Liquidity -> Confirm -> Decision" : "G->B->L->C->D", text_color = color.gray, text_size = size.tiny)
 
 // Elite visuals: draw rails + AMD tint
 var line drawUpLn = na
