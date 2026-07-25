@@ -660,25 +660,8 @@ f_findBearOB() =>
             break
     [top, bot]
 
-f_resetPend() =>
-    pendDir := 0
-    pendBars := 0
-    pendExtreme := na
-    pendMSSLevel := na
-    pendMSS := false
-    pendCISD := false
-    pendTag := ""
-    pendPool := ""
-    obTop := na
-    obBot := na
-    fvgTop := na
-    fvgBot := na
-    waitEntry := 0
-    zoneBorn := 0
-    armSL := na
-    if not na(zoneBox)
-        box.delete(zoneBox)
-        zoneBox := na
+// Flag to clear pending state in global scope (Pine forbids := on globals inside functions)
+bool clearPend = false
 
 // Raw reversal setups (filters agree + sweep happened)
 revLongSetup  = allowRev and anyBull and bullCndl and dispOK and gBiasL and gCorrL and sessionOK and gStochL and gPtjL and volOK and gradeOKL and hierOKL and (not hardF or qualityBull or minWickRatio <= 0)
@@ -789,7 +772,7 @@ if pendDir != 0 and not proMode and waitEntry == 0
         else
             pendBars -= 1
             if pendBars <= 0
-                f_resetPend()
+                clearPend := true
     else
         if high < low[2]
             fvgTop := low[2]
@@ -802,7 +785,7 @@ if pendDir != 0 and not proMode and waitEntry == 0
         else
             pendBars -= 1
             if pendBars <= 0
-                f_resetPend()
+                clearPend := true
 
 // PRO mode: after MSS, build OB/FVG entry zone
 if pendDir != 0 and proMode and pendMSS and waitEntry == 0
@@ -836,40 +819,61 @@ if pendDir != 0 and proMode and pendMSS and waitEntry == 0
     else
         pendBars -= 1
         if pendBars <= 0
-            f_resetPend()
+            clearPend := true
 
 // Expire pending if MSS never prints
 if pendDir != 0 and proMode and not pendMSS and waitEntry == 0
     pendBars -= 1
     if pendBars <= 0
-        f_resetPend()
+        clearPend := true
 
 // Retest entry into OB/FVG zone
 if waitEntry > 0
     if pendDir == 1
         if close < armSL
-            f_resetPend()
+            clearPend := true
         else if bar_index > zoneBorn and low <= fvgTop and canSignal and (not proMode or pendMSS)
             fireLong := true
             slLong   := armSL
             tagLong  := (proMode ? "PRO-Long " : "FVG-Long ") + pendTag + (pendPool != "" ? " " + pendPool : "")
-            f_resetPend()
+            clearPend := true
         else
             waitEntry -= 1
             if waitEntry == 0
-                f_resetPend()
+                clearPend := true
     else if pendDir == -1
         if close > armSL
-            f_resetPend()
+            clearPend := true
         else if bar_index > zoneBorn and high >= fvgBot and canSignal and (not proMode or pendMSS)
             fireShort := true
             slShort   := armSL
             tagShort  := (proMode ? "PRO-Short " : "FVG-Short ") + pendTag + (pendPool != "" ? " " + pendPool : "")
-            f_resetPend()
+            clearPend := true
         else
             waitEntry -= 1
             if waitEntry == 0
-                f_resetPend()
+                clearPend := true
+
+// Apply pending reset in global scope (required by Pine CE10088)
+if clearPend
+    pendDir := 0
+    pendBars := 0
+    pendExtreme := na
+    pendMSSLevel := na
+    pendMSS := false
+    pendCISD := false
+    pendTag := ""
+    pendPool := ""
+    obTop := na
+    obBot := na
+    fvgTop := na
+    fvgBot := na
+    waitEntry := 0
+    zoneBorn := 0
+    armSL := na
+    if not na(zoneBox)
+        box.delete(zoneBox)
+        zoneBox := na
 
 // Continuation still fires immediately (acceptance = real breakout)
 if contLongSig and not fireLong
