@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Gold Liquidity Sweep PRO v5.0 — ELITE INSTITUTIONAL LIQUIDITY [Rajesh Sha]
+// Gold Liquidity Sweep PRO v5.1 — ELITE INSTITUTIONAL LIQUIDITY [Rajesh Sha]
 // v3.2 look kept (labels + StochRSI). v5 adds desk-grade edge pack.
+// v5.1: high-contrast label text (fixes unreadable dark-on-dark opens / levels).
 // COMPILE-FIXED: clearPend reset; const plotshape text.
 //
 // Core: Pool → Inducement → External sweep → CISD/MSS → Prem/Disc + OTE
@@ -11,8 +12,8 @@
 // USE: OANDA:XAUUSD, 1-minute. HTF non-repainting ([1]+lookahead_on).
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=6
-indicator("Gold Liquidity Sweep PRO v5.0 — Signals",
-     shorttitle = "GOLD LiqSweep PRO v5",
+indicator("Gold Liquidity Sweep PRO v5.1 — Signals",
+     shorttitle = "GOLD LiqSweep PRO v5.1",
      overlay = true,
      max_lines_count = 500,
      max_labels_count = 500,
@@ -165,7 +166,7 @@ adrCap      = input.float(1.0, "Range spent at x ADR", minval = 0.5, step = 0.1,
 
 grpVis = "Visuals / UX (same as before — tidy only)"
 useSimple      = input.bool(true, "Beginner mode: plain-English labels", group = grpVis)
-hiContrast     = input.bool(false, "Dark labels (optional)", group = grpVis, tooltip = "OFF = same colored labels as v3.2 (orange Day-H, pink Asia-H, etc). ON = dark bg + white text.")
+hiContrast     = input.bool(false, "Dark labels (optional)", group = grpVis, tooltip = "OFF = colored label pills with auto black/white text for contrast. ON = dark bg + white text on all.")
 showRoundLbs   = input.bool(true, "Show round-number labels", group = grpVis)
 pinLabels      = input.bool(true, "Pin level labels to right edge", group = grpVis)
 pinOffset      = input.int(8, "Label base offset from last bar", minval = 0, group = grpVis)
@@ -182,11 +183,17 @@ showBG         = input.bool(true, "Shade kill zones", group = grpVis)
 showFVGBox     = input.bool(true, "Draw pending FVG / OB zone", group = grpVis)
 showMSSMarks   = input.bool(true, "Mark MSS / CISD confirmations", group = grpVis)
 
-// Label colors: v3.2 pastel boxes — solid tint + dark text (readable, nothing removed)
+// Label colors: solid tint + AUTO contrast text (fixes dark-on-dark like NY midnight open)
 f_lblBg(col) =>
-    hiContrast ? color.new(color.rgb(15, 23, 42), 5) : color.new(col, 20)
+    hiContrast ? color.new(color.rgb(15, 23, 42), 0) : color.new(col, 0)
 f_lblTx(col) =>
-    hiContrast ? color.white : color.rgb(33, 33, 33)
+    // White text on dark pills, near-black on light pills (RND blue, salmon, yellow…)
+    float lum = 0.299 * color.r(col) + 0.587 * color.g(col) + 0.114 * color.b(col)
+    hiContrast ? color.white : lum >= 155 ? color.rgb(15, 15, 15) : color.white
+f_styleLb(label lb, color col) =>
+    if not na(lb)
+        label.set_color(lb, f_lblBg(col))
+        label.set_textcolor(lb, f_lblTx(col))
 
 // ═══════════════════════════ HTF / INTERMARKET DATA (non-repainting) ═══════════════════════════
 pdh = request.security(syminfo.tickerid, "D", high[1], lookahead = barmerge.lookahead_on)
@@ -409,8 +416,8 @@ if newDay
             line.delete(dayOpenLn)
         if not na(dayOpenLb)
             label.delete(dayOpenLb)
-        dayOpenLn := line.new(bar_index, dayOpen, bar_index + 1, dayOpen, extend = extend.right, color = color.rgb(121, 85, 72), width = 1, style = line.style_dotted)
-        dayOpenLb := label.new(bar_index, dayOpen, useSimple ? "Day open magnet  " + str.tostring(dayOpen, format.mintick) : "Day-O  " + str.tostring(dayOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(121, 85, 72)), textcolor = f_lblTx(color.rgb(121, 85, 72)), size = size.small)
+        dayOpenLn := line.new(bar_index, dayOpen, bar_index + 1, dayOpen, extend = extend.right, color = color.rgb(191, 128, 64), width = 1, style = line.style_dotted)
+        dayOpenLb := label.new(bar_index, dayOpen, useSimple ? "Day open magnet  " + str.tostring(dayOpen, format.mintick) : "Day-O  " + str.tostring(dayOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(191, 128, 64)), textcolor = f_lblTx(color.rgb(191, 128, 64)), size = size.small)
 else
     if na(cdH) or high > cdH
         cdH := high
@@ -436,8 +443,8 @@ if newWeek
             line.delete(weekOpenLn)
         if not na(weekOpenLb)
             label.delete(weekOpenLb)
-        weekOpenLn := line.new(bar_index, weekOpen, bar_index + 1, weekOpen, extend = extend.right, color = color.rgb(93, 64, 55), width = 1, style = line.style_dotted)
-        weekOpenLb := label.new(bar_index, weekOpen, useSimple ? "Week open magnet  " + str.tostring(weekOpen, format.mintick) : "Week-O  " + str.tostring(weekOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(93, 64, 55)), textcolor = f_lblTx(color.rgb(93, 64, 55)), size = size.small)
+        weekOpenLn := line.new(bar_index, weekOpen, bar_index + 1, weekOpen, extend = extend.right, color = color.rgb(176, 106, 56), width = 1, style = line.style_dotted)
+        weekOpenLb := label.new(bar_index, weekOpen, useSimple ? "Week open magnet  " + str.tostring(weekOpen, format.mintick) : "Week-O  " + str.tostring(weekOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(176, 106, 56)), textcolor = f_lblTx(color.rgb(176, 106, 56)), size = size.small)
 else
     if na(cwH) or high > cwH
         cwH := high
@@ -454,8 +461,8 @@ if useOpens and newNYMid
         line.delete(midOpenLn)
     if not na(midOpenLb)
         label.delete(midOpenLb)
-    midOpenLn := line.new(bar_index, midOpen, bar_index + 1, midOpen, extend = extend.right, color = color.rgb(62, 39, 35), width = 2, style = line.style_dotted)
-    midOpenLb := label.new(bar_index, midOpen, useSimple ? "NY midnight open  " + str.tostring(midOpen, format.mintick) : "NY-Mid  " + str.tostring(midOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(62, 39, 35)), textcolor = f_lblTx(color.rgb(62, 39, 35)), size = size.small)
+    midOpenLn := line.new(bar_index, midOpen, bar_index + 1, midOpen, extend = extend.right, color = color.rgb(255, 152, 0), width = 2, style = line.style_dotted)
+    midOpenLb := label.new(bar_index, midOpen, useSimple ? "NY midnight open  " + str.tostring(midOpen, format.mintick) : "NY-Mid  " + str.tostring(midOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(255, 152, 0)), textcolor = f_lblTx(color.rgb(255, 152, 0)), size = size.small)
 
 // ── NDOG / NWOG (New Day / New Week Opening Gaps) ──
 var float ndogTop = na
@@ -476,8 +483,8 @@ if useNDOG and newDay
         if not na(ndogLb)
             label.delete(ndogLb)
         if showEliteVis and ndogTop - ndogBot >= syminfo.mintick
-            ndogBox := box.new(bar_index, ndogTop, bar_index + 40, ndogBot, border_color = color.rgb(121, 85, 72), bgcolor = color.new(color.rgb(121, 85, 72), 85), text = "NDOG", text_color = color.rgb(93, 64, 55))
-            ndogLb := label.new(bar_index + 8, ndogTop, useSimple ? "Day gap magnet" : "NDOG", style = label.style_label_left, color = f_lblBg(color.rgb(121, 85, 72)), textcolor = f_lblTx(color.rgb(121, 85, 72)), size = size.tiny)
+            ndogBox := box.new(bar_index, ndogTop, bar_index + 40, ndogBot, border_color = color.rgb(191, 128, 64), bgcolor = color.new(color.rgb(191, 128, 64), 82), text = "NDOG", text_color = color.white)
+            ndogLb := label.new(bar_index + 8, ndogTop, useSimple ? "Day gap magnet" : "NDOG", style = label.style_label_left, color = f_lblBg(color.rgb(191, 128, 64)), textcolor = f_lblTx(color.rgb(191, 128, 64)), size = size.small)
 if useNDOG and newWeek
     float pwc = close[1]
     if open != pwc
@@ -488,8 +495,8 @@ if useNDOG and newWeek
         if not na(nwogLb)
             label.delete(nwogLb)
         if showEliteVis and nwogTop - nwogBot >= syminfo.mintick
-            nwogBox := box.new(bar_index, nwogTop, bar_index + 80, nwogBot, border_color = color.rgb(93, 64, 55), bgcolor = color.new(color.rgb(93, 64, 55), 88), text = "NWOG", text_color = color.rgb(62, 39, 35))
-            nwogLb := label.new(bar_index + 8, nwogTop, useSimple ? "Week gap magnet" : "NWOG", style = label.style_label_left, color = f_lblBg(color.rgb(93, 64, 55)), textcolor = f_lblTx(color.rgb(93, 64, 55)), size = size.tiny)
+            nwogBox := box.new(bar_index, nwogTop, bar_index + 80, nwogBot, border_color = color.rgb(176, 106, 56), bgcolor = color.new(color.rgb(176, 106, 56), 82), text = "NWOG", text_color = color.white)
+            nwogLb := label.new(bar_index + 8, nwogTop, useSimple ? "Week gap magnet" : "NWOG", style = label.style_label_left, color = f_lblBg(color.rgb(176, 106, 56)), textcolor = f_lblTx(color.rgb(176, 106, 56)), size = size.small)
 nearNDOG = useNDOG and not na(ndogTop) and high >= ndogBot and low <= ndogTop
 nearNWOG = useNDOG and not na(nwogTop) and high >= nwogBot and low <= nwogTop
 
@@ -1402,10 +1409,10 @@ londonStart = inLondon and not inLondon[1]
 nyStart     = inNY and not inNY[1]
 sbStart     = inSB and not inSB[1]
 sessEnd     = not (inLondon or inNY or inSB) and (inLondon[1] or inNY[1] or inSB[1])
-plotshape(showBG and londonStart, "London open",   text = "LONDON\ntrading ON",  style = shape.labeldown, location = location.top, color = color.new(color.blue, 75),   textcolor = color.blue,   size = size.tiny)
-plotshape(showBG and nyStart,     "New York open", text = "NEW YORK\ntrading ON", style = shape.labeldown, location = location.top, color = color.new(color.purple, 75), textcolor = color.purple, size = size.tiny)
-plotshape(showBG and sbStart,     "Silver Bullet", text = "SILVER\nBULLET",       style = shape.labeldown, location = location.top, color = color.new(color.green, 75),  textcolor = color.green,  size = size.tiny)
-plotshape(showBG and sessEnd,     "Session end",   text = "CLOSED\nno trading",   style = shape.labeldown, location = location.top, color = color.new(color.gray, 75),   textcolor = color.gray,   size = size.tiny)
+plotshape(showBG and londonStart, "London open",   text = "LONDON\ntrading ON",  style = shape.labeldown, location = location.top, color = color.blue,   textcolor = color.white, size = size.tiny)
+plotshape(showBG and nyStart,     "New York open", text = "NEW YORK\ntrading ON", style = shape.labeldown, location = location.top, color = color.purple, textcolor = color.white, size = size.tiny)
+plotshape(showBG and sbStart,     "Silver Bullet", text = "SILVER\nBULLET",       style = shape.labeldown, location = location.top, color = color.green,  textcolor = color.white, size = size.tiny)
+plotshape(showBG and sessEnd,     "Session end",   text = "CLOSED\nno trading",   style = shape.labeldown, location = location.top, color = color.gray,   textcolor = color.white, size = size.tiny)
 
 plot(biasOn ? biasEma : na, "Bias EMA", color = color.new(color.gray, 40))
 
@@ -1419,7 +1426,7 @@ if showStochLines
     if k15 <= stochOS and not (k15[1] <= stochOS)
         label.new(bar_index, low - stOff * 1.8, useSimple ? "Sellers tired 15m (BUY side ready)" : "15m OS", style = label.style_label_upper_right, color = f_lblBg(color.teal), textcolor = f_lblTx(color.teal), size = size.tiny)
     if k15 >= stochOB and not (k15[1] >= stochOB)
-        label.new(bar_index, high + stOff * 1.8, useSimple ? "Buyers tired 15m (SELL side ready)" : "15m OB", style = label.style_label_lower_right, color = f_lblBg(color.yellow), textcolor = f_lblTx(color.yellow), size = size.tiny)
+        label.new(bar_index, high + stOff * 1.8, useSimple ? "Buyers tired 15m (SELL side ready)" : "15m OB", style = label.style_label_lower_right, color = f_lblBg(color.yellow), textcolor = color.black, size = size.tiny)
 
 // ═══════════════════════════ SMART LABEL PINNING (anti-overlap UX) ═══════════════════════════
 // Sort-free cluster bump: each new label near an existing one gets a higher
@@ -1456,6 +1463,22 @@ f_collectPin(array<LiqLevel> arr, array<label> lbs, array<line> lns, array<float
                 array.push(lbs, L.lb)
                 array.push(lns, L.ln)
                 array.push(ys, L.price)
+
+// Re-apply readable colors every bar (fixes already-drawn dark labels like NY midnight)
+f_restyleLevels(array<LiqLevel> arr) =>
+    if array.size(arr) > 0
+        for L in arr
+            f_styleLb(L.lb, L.col)
+
+if barstate.islast
+    f_restyleLevels(staticLevels)
+    f_restyleLevels(dynLevels)
+    f_restyleLevels(roundLevels)
+    f_styleLb(dayOpenLb, color.rgb(191, 128, 64))
+    f_styleLb(weekOpenLb, color.rgb(176, 106, 56))
+    f_styleLb(midOpenLb, color.rgb(255, 152, 0))
+    f_styleLb(ndogLb, color.rgb(191, 128, 64))
+    f_styleLb(nwogLb, color.rgb(176, 106, 56))
 
 if pinLabels and barstate.islast
     array.clear(pinYs)
@@ -1534,7 +1557,7 @@ if showTable and barstate.islast
          (londonLowSweptNY or londonHighSweptNY ? (useSimple ? (asiaLowSweptLondon or asiaHighSweptLondon ? " · " : "") + "NY swept London" : (asiaLowSweptLondon or asiaHighSweptLondon ? " · " : "") + "NY>London") : "")
     hierTxt := hierTxt == "" ? (useSimple ? "No session hunt yet" : "None") : hierTxt
 
-    table.cell(t, 0, 0, "GOLD LiqSweep PRO v5.0", text_color = color.white, bgcolor = color.navy, text_size = size.small)
+    table.cell(t, 0, 0, "GOLD LiqSweep PRO v5.1", text_color = color.white, bgcolor = color.navy, text_size = size.small)
     table.cell(t, 1, 0, standAside ? (useSimple ? "DO NOT TRADE" : "STAND ASIDE") : aPlusMode ? (useSimple ? "A+ FILTER ON" : "A+ MODE") : (useSimple ? "WATCHING" : "SCANNING"), text_color = color.white, bgcolor = standAside ? color.red : aPlusMode ? color.rgb(21, 101, 192) : color.new(color.green, 30), text_size = size.small)
     table.cell(t, 0, 1, useSimple ? "Big trend (4H)" : "Bias", text_color = tblMute, text_size = size.small)
     table.cell(t, 1, 1, biasTxt, text_color = biasCol, text_size = size.small)
