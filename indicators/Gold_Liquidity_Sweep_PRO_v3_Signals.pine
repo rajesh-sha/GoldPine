@@ -1,23 +1,22 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Gold Liquidity Sweep PRO v4.4 — INSTITUTIONAL LIQUIDITY SIGNALS [Rajesh Sha]
-// Same visuals as v3.2 (all labels + StochRSI rails) — only tidier spacing + clearer colors.
+// Gold Liquidity Sweep PRO v5.0 — ELITE INSTITUTIONAL LIQUIDITY [Rajesh Sha]
+// v3.2 look kept (labels + StochRSI). v5 adds desk-grade edge pack.
 // COMPILE-FIXED: clearPend reset; const plotshape text.
 //
-// Pure liquidity / price-action stack (what desks actually trade):
-//   Pool → Inducement (internal) → External sweep → CISD/MSS
-//     → Premium/Discount + OTE → CE/OB/Breaker/FVG → opposite pool
-//   + NY midnight / Daily / Weekly opens · SMT (Gold vs Silver)
-//   + Pure Liquidity mode: EMA/Stoch/200MA stop being vetoes (score only)
+// Core: Pool → Inducement → External sweep → CISD/MSS → Prem/Disc + OTE
+//       → CE/OB/Breaker/FVG → opposite pool
+// Elite: HTF Draw · HTF POI · AMD (Power of 3) · SMT Gold/Silver+DXY
+//        IFVG · Unicorn · NDOG/NWOG · BPR · :00/:30 time · News blackout · A+ gate
 //
 // USE: OANDA:XAUUSD, 1-minute. HTF non-repainting ([1]+lookahead_on).
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=6
-indicator("Gold Liquidity Sweep PRO v4.4 — Signals",
-     shorttitle = "GOLD LiqSweep PRO v4.4",
+indicator("Gold Liquidity Sweep PRO v5.0 — Signals",
+     shorttitle = "GOLD LiqSweep PRO v5",
      overlay = true,
      max_lines_count = 500,
      max_labels_count = 500,
-     max_boxes_count = 100)
+     max_boxes_count = 150)
 
 // ═══════════════════════════ INPUTS ═══════════════════════════
 grpLvl = "Static Liquidity Levels"
@@ -80,6 +79,26 @@ nestBars = input.int(90, "Inducement lookback (bars)", minval = 10, group = grpP
 useSMT = input.bool(true, "SMT divergence (Gold vs Silver)", group = grpPure, tooltip = "True swing SMT — not an EMA. Bullish: gold sweeps a low while silver fails to make a lower low. Bearish: gold sweeps a high while silver fails to make a higher high.")
 smtSym = input.symbol("TVC:SILVER", "SMT symbol (Silver)", group = grpPure)
 requireSMT = input.bool(false, "REQUIRE SMT for reversal signals", group = grpPure)
+
+grpElite = "Elite Edge Pack (v5 — desk filter)"
+useHTFDraw   = input.bool(true, "HTF Draw on Liquidity (target pool)", group = grpElite, tooltip = "Only BUY when there is untapped BSL above (draw up). Only SELL when untapped SSL below (draw down). This is the #1 institutional filter.")
+requireDraw  = input.bool(true, "REQUIRE draw in trade direction", group = grpElite)
+useHTFPOI    = input.bool(true, "HTF POI alignment (1H FVG shelf)", group = grpElite, tooltip = "LTF entry should sit inside / interact with a higher-timeframe FVG (point of interest).")
+htfPoiTF     = input.timeframe("60", "HTF POI timeframe", group = grpElite)
+requirePOI   = input.bool(false, "REQUIRE HTF POI for signals", group = grpElite)
+useAMD       = input.bool(true, "Power of 3 — AMD phases", group = grpElite, tooltip = "Asia = Accumulation, London sweep = Manipulation (Judas), NY = Distribution. Pros prefer Distribution.")
+requireAMD   = input.bool(false, "REQUIRE Distribution phase", group = grpElite)
+useSmtDXY    = input.bool(true, "SMT Gold vs DXY (swing)", group = grpElite, tooltip = "Extra SMT: gold sweeps low + DXY fails HH = bullish gold. Gold sweeps high + DXY fails LL = bearish gold.")
+useIFVG      = input.bool(true, "Inversion FVG (failed FVG flips)", group = grpElite)
+useUnicorn   = input.bool(true, "Unicorn model (Breaker + FVG overlap)", group = grpElite, tooltip = "Score/boost when breaker shelf and FVG overlap — classic A+ entry model.")
+useNDOG      = input.bool(true, "NDOG / NWOG opening gaps", group = grpElite, tooltip = "New Day / New Week opening gaps — institutional magnets.")
+useBPR       = input.bool(true, "BPR (balanced price range)", group = grpElite, tooltip = "Bullish + bearish FVG overlap = high-probability shelf.")
+useTimeConf  = input.bool(true, "Time confluence (:00 / :30 NY)", group = grpElite)
+useNewsBlk   = input.bool(true, "News blackout windows", group = grpElite, tooltip = "Stand aside during configured high-impact windows (set to your CPI/NFP/FOMC times).")
+newsSess1    = input.session("0830-0845", "News window 1 (NY)", group = grpElite)
+newsSess2    = input.session("1400-1430", "News window 2 (NY)", group = grpElite)
+aPlusMode    = input.bool(false, "A+ ONLY mode (strict)", group = grpElite, tooltip = "ON: signal only when Draw + Nest + Killzone + (SMT or Judas) + Prem/Disc agree. Fewer trades, higher quality.")
+showEliteVis = input.bool(true, "Show elite visuals (draw / gaps / AMD)", group = grpElite)
 
 grpBias = "Higher-Timeframe Bias (optional — off in Pure mode veto)"
 biasMode = input.string("Off (counter-trend allowed)", "Bias Mode", options = ["EMA Filter", "Off (counter-trend allowed)"], group = grpBias)
@@ -189,6 +208,30 @@ f_smtPiv() =>
     [ph[1], pl[1]]
 [smtPH, smtPL] = request.security(smtSym, timeframe.period, f_smtPiv(), lookahead = barmerge.lookahead_on)
 [smtHi, smtLo] = request.security(smtSym, timeframe.period, [high[1], low[1]], lookahead = barmerge.lookahead_on)
+// SMT vs DXY (same pivot method)
+[dxyPH, dxyPL] = request.security(dxySym, timeframe.period, f_smtPiv(), lookahead = barmerge.lookahead_on)
+[dxyHiS, dxyLoS] = request.security(dxySym, timeframe.period, [high[1], low[1]], lookahead = barmerge.lookahead_on)
+
+// HTF POI: last valid bullish/bearish FVG on higher TF (non-repainting)
+f_htfPoi() =>
+    var float bTop = na
+    var float bBot = na
+    var float sTop = na
+    var float sBot = na
+    if low[1] > high[3]
+        bBot := high[3]
+        bTop := low[1]
+    if high[1] < low[3]
+        sTop := low[3]
+        sBot := high[1]
+    if not na(bBot) and close[1] < bBot
+        bTop := na
+        bBot := na
+    if not na(sTop) and close[1] > sTop
+        sTop := na
+        sBot := na
+    [bTop, bBot, sTop, sBot]
+[htfBullTop, htfBullBot, htfBearTop, htfBearBot] = request.security(syminfo.tickerid, htfPoiTF, f_htfPoi(), lookahead = barmerge.lookahead_on)
 
 f_stochK() =>
     rsiV = ta.rsi(close, stochRsiLen)
@@ -414,6 +457,42 @@ if useOpens and newNYMid
     midOpenLn := line.new(bar_index, midOpen, bar_index + 1, midOpen, extend = extend.right, color = color.rgb(62, 39, 35), width = 2, style = line.style_dotted)
     midOpenLb := label.new(bar_index, midOpen, useSimple ? "NY midnight open  " + str.tostring(midOpen, format.mintick) : "NY-Mid  " + str.tostring(midOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(62, 39, 35)), textcolor = f_lblTx(color.rgb(62, 39, 35)), size = size.small)
 
+// ── NDOG / NWOG (New Day / New Week Opening Gaps) ──
+var float ndogTop = na
+var float ndogBot = na
+var float nwogTop = na
+var float nwogBot = na
+var box ndogBox = na
+var box nwogBox = na
+var label ndogLb = na
+var label nwogLb = na
+if useNDOG and newDay
+    float pdc = close[1]
+    if open != pdc
+        ndogTop := math.max(open, pdc)
+        ndogBot := math.min(open, pdc)
+        if not na(ndogBox)
+            box.delete(ndogBox)
+        if not na(ndogLb)
+            label.delete(ndogLb)
+        if showEliteVis and ndogTop - ndogBot >= syminfo.mintick
+            ndogBox := box.new(bar_index, ndogTop, bar_index + 40, ndogBot, border_color = color.rgb(121, 85, 72), bgcolor = color.new(color.rgb(121, 85, 72), 85), text = "NDOG", text_color = color.rgb(93, 64, 55))
+            ndogLb := label.new(bar_index + 8, ndogTop, useSimple ? "Day gap magnet" : "NDOG", style = label.style_label_left, color = f_lblBg(color.rgb(121, 85, 72)), textcolor = f_lblTx(color.rgb(121, 85, 72)), size = size.tiny)
+if useNDOG and newWeek
+    float pwc = close[1]
+    if open != pwc
+        nwogTop := math.max(open, pwc)
+        nwogBot := math.min(open, pwc)
+        if not na(nwogBox)
+            box.delete(nwogBox)
+        if not na(nwogLb)
+            label.delete(nwogLb)
+        if showEliteVis and nwogTop - nwogBot >= syminfo.mintick
+            nwogBox := box.new(bar_index, nwogTop, bar_index + 80, nwogBot, border_color = color.rgb(93, 64, 55), bgcolor = color.new(color.rgb(93, 64, 55), 88), text = "NWOG", text_color = color.rgb(62, 39, 35))
+            nwogLb := label.new(bar_index + 8, nwogTop, useSimple ? "Week gap magnet" : "NWOG", style = label.style_label_left, color = f_lblBg(color.rgb(93, 64, 55)), textcolor = f_lblTx(color.rgb(93, 64, 55)), size = size.tiny)
+nearNDOG = useNDOG and not na(ndogTop) and high >= ndogBot and low <= ndogTop
+nearNWOG = useNDOG and not na(nwogTop) and high >= nwogBot and low <= nwogTop
+
 if newMonth
     prevM_H := cmH
     prevM_L := cmL
@@ -514,11 +593,11 @@ var float lastPH = na
 var float lastPL = na
 if useEQ and not na(ph)
     if not na(lastPH) and math.abs(ph - lastPH) <= eqTolATR * atrVal
-        f_addDyn("EQH", "high", math.max(ph, lastPH), color.maroon)
+        f_addDyn("EQH", "high", math.max(ph, lastPH), color.rgb(236, 64, 122))
     lastPH := ph
 if useEQ and not na(pl)
     if not na(lastPL) and math.abs(pl - lastPL) <= eqTolATR * atrVal
-        f_addDyn("EQL", "low", math.min(pl, lastPL), color.navy)
+        f_addDyn("EQL", "low", math.min(pl, lastPL), color.rgb(66, 165, 245))
     lastPL := pl
 
 if array.size(dynLevels) > 0
@@ -639,14 +718,109 @@ if not na(smtPH)
 if not na(smtPL)
     smtLastPL := smtPL
 // Bullish SMT: gold sweeps a low while silver fails to make a lower low
-smtBullRaw = anyBull and not na(smtLastPL) and not na(smtLo) and smtLo > smtLastPL
+smtAgBull = useSMT and anyBull and not na(smtLastPL) and not na(smtLo) and smtLo > smtLastPL
 // Bearish SMT: gold sweeps a high while silver fails to make a higher high
-smtBearRaw = anyBear and not na(smtLastPH) and not na(smtHi) and smtHi < smtLastPH
-smtLongOK  = not useSMT or not requireSMT or smtBullRaw
-smtShortOK = not useSMT or not requireSMT or smtBearRaw
+smtAgBear = useSMT and anyBear and not na(smtLastPH) and not na(smtHi) and smtHi < smtLastPH
+
+// ── SMT Gold vs DXY ──
+var float dxyLastPH = na
+var float dxyLastPL = na
+if not na(dxyPH)
+    dxyLastPH := dxyPH
+if not na(dxyPL)
+    dxyLastPL := dxyPL
+// Gold LL + DXY fails HH → bullish gold | Gold HH + DXY fails LL → bearish gold
+smtDxyBull = useSmtDXY and anyBull and not na(dxyLastPH) and not na(dxyHiS) and dxyHiS < dxyLastPH
+smtDxyBear = useSmtDXY and anyBear and not na(dxyLastPL) and not na(dxyLoS) and dxyLoS > dxyLastPL
+smtBullRaw = smtAgBull or smtDxyBull
+smtBearRaw = smtAgBear or smtDxyBear
+smtLongOK  = (not useSMT and not useSmtDXY) or not requireSMT or smtBullRaw
+smtShortOK = (not useSMT and not useSmtDXY) or not requireSMT or smtBearRaw
 
 // Near institutional open confluence
 nearOpen = useOpens and ((not na(dayOpen) and math.abs(close - dayOpen) <= atrVal) or (not na(weekOpen) and math.abs(close - weekOpen) <= atrVal) or (not na(midOpen) and math.abs(close - midOpen) <= atrVal))
+
+// ═══════════════════════════ ELITE EDGE PACK (v5) ═══════════════════════════
+// HTF Draw on Liquidity — nearest untapped external pool in each direction
+f_pickAbove(float px, float best) =>
+    float r = best
+    if not na(px) and px > close
+        r := na(r) ? px : math.min(r, px)
+    r
+f_pickBelow(float px, float best) =>
+    float r = best
+    if not na(px) and px < close
+        r := na(r) ? px : math.max(r, px)
+    r
+float drawBSL = na
+float drawSSL = na
+drawBSL := f_pickAbove(lvlPDH.price, drawBSL)
+drawBSL := f_pickAbove(lvlPWH.price, drawBSL)
+drawBSL := f_pickAbove(lvlAsiaH.price, drawBSL)
+drawBSL := f_pickAbove(lvlCDH.price, drawBSL)
+drawBSL := f_pickAbove(lvlCWH.price, drawBSL)
+drawBSL := f_pickAbove(ndogTop, drawBSL)
+drawBSL := f_pickAbove(nwogTop, drawBSL)
+drawSSL := f_pickBelow(lvlPDL.price, drawSSL)
+drawSSL := f_pickBelow(lvlPWL.price, drawSSL)
+drawSSL := f_pickBelow(lvlAsiaL.price, drawSSL)
+drawSSL := f_pickBelow(lvlCDL.price, drawSSL)
+drawSSL := f_pickBelow(lvlCWL.price, drawSSL)
+drawSSL := f_pickBelow(ndogBot, drawSSL)
+drawSSL := f_pickBelow(nwogBot, drawSSL)
+if array.size(roundLevels) > 0
+    for L in roundLevels
+        if L.kind == "high"
+            drawBSL := f_pickAbove(L.price, drawBSL)
+        else
+            drawSSL := f_pickBelow(L.price, drawSSL)
+drawLongOK  = not useHTFDraw or not requireDraw or not na(drawBSL)
+drawShortOK = not useHTFDraw or not requireDraw or not na(drawSSL)
+string drawTxt = not useHTFDraw ? "Off" : (not na(drawBSL) ? "UP " + str.tostring(drawBSL, format.mintick) : "no BSL") + " | " + (not na(drawSSL) ? "DN " + str.tostring(drawSSL, format.mintick) : "no SSL")
+
+// HTF POI alignment
+inHtfBullPOI = useHTFPOI and not na(htfBullBot) and low <= htfBullTop and high >= htfBullBot
+inHtfBearPOI = useHTFPOI and not na(htfBearTop) and high >= htfBearBot and low <= htfBearTop
+poiLongOK  = not useHTFPOI or not requirePOI or inHtfBullPOI
+poiShortOK = not useHTFPOI or not requirePOI or inHtfBearPOI
+
+// Chart-TF FVG → IFVG + BPR
+var float lastBullFvgTop = na
+var float lastBullFvgBot = na
+var float lastBearFvgTop = na
+var float lastBearFvgBot = na
+var float ifvgTop = na
+var float ifvgBot = na
+var int   ifvgDir = 0
+if low > high[2]
+    lastBullFvgBot := high[2]
+    lastBullFvgTop := low
+if high < low[2]
+    lastBearFvgTop := low[2]
+    lastBearFvgBot := high
+if useIFVG and not na(lastBullFvgBot) and close < lastBullFvgBot
+    ifvgTop := lastBullFvgTop
+    ifvgBot := lastBullFvgBot
+    ifvgDir := -1
+    lastBullFvgTop := na
+    lastBullFvgBot := na
+if useIFVG and not na(lastBearFvgTop) and close > lastBearFvgTop
+    ifvgTop := lastBearFvgTop
+    ifvgBot := lastBearFvgBot
+    ifvgDir := 1
+    lastBearFvgTop := na
+    lastBearFvgBot := na
+inBullIFVG = useIFVG and ifvgDir == 1 and not na(ifvgBot) and high >= ifvgBot and low <= ifvgTop
+inBearIFVG = useIFVG and ifvgDir == -1 and not na(ifvgTop) and high >= ifvgBot and low <= ifvgTop
+bprActive = useBPR and not na(lastBullFvgBot) and not na(lastBearFvgBot) and lastBullFvgBot < lastBearFvgTop and lastBullFvgTop > lastBearFvgBot
+nearBPR = bprActive and high >= math.min(lastBullFvgBot, lastBearFvgBot) and low <= math.max(lastBullFvgTop, lastBearFvgTop)
+
+// Time confluence (:00 / :30 New York)
+nyMin = minute(time, TZ_NY)
+timeConf = not useTimeConf or nyMin == 0 or nyMin == 30
+
+// News blackout
+inNews = useNewsBlk and (not na(time(timeframe.period, newsSess1, TZ_NY)) or not na(time(timeframe.period, newsSess2, TZ_NY)))
 
 // ═══════════════════════════ SESSION HIERARCHY ═══════════════════════════
 inLondon  = useLondonKZ and not na(time(timeframe.period, londonKZ, TZ_NY))
@@ -688,6 +862,29 @@ hierShort = (inLondon and asiaHighSweptLondon) or (inNY and londonHighSweptNY) o
 hierOKL = not requireHier or hierLong
 hierOKS = not requireHier or hierShort
 
+// Power of 3 — AMD (Accumulation / Manipulation / Distribution)
+string amdPhase = "OFF"
+if useAMD
+    if inAsia
+        amdPhase := "ACC"
+    else if inLondon and (asiaHighSweptLondon or asiaLowSweptLondon)
+        amdPhase := "MAN"
+    else if inLondon
+        amdPhase := "ACC"
+    else if inNY or inSB
+        amdPhase := (asiaHighSweptLondon or asiaLowSweptLondon or londonHighSweptNY or londonLowSweptNY) ? "DIST" : "DIST"
+    else
+        amdPhase := "OFF"
+amdLongOK  = not useAMD or not requireAMD or (amdPhase == "DIST" and (asiaLowSweptLondon or londonLowSweptNY or hierLong))
+amdShortOK = not useAMD or not requireAMD or (amdPhase == "DIST" and (asiaHighSweptLondon or londonHighSweptNY or hierShort))
+string amdTxt = not useAMD ? "Off" : amdPhase == "ACC" ? (useSimple ? "Accumulation (build range)" : "ACC") : amdPhase == "MAN" ? (useSimple ? "Manipulation (Judas sweep)" : "MAN") : amdPhase == "DIST" ? (useSimple ? "Distribution (trade this)" : "DIST") : (useSimple ? "Outside AMD window" : "OFF")
+
+// A+ desk confluence (strict optional gate)
+aPlusLong  = sessionOK and nestedLong and premDiscLongOK and drawLongOK and (smtBullRaw or hierLong) and (not useAMD or amdPhase == "DIST" or hierLong)
+aPlusShort = sessionOK and nestedShort and premDiscShortOK and drawShortOK and (smtBearRaw or hierShort) and (not useAMD or amdPhase == "DIST" or hierShort)
+aPlusOKL = not aPlusMode or aPlusLong
+aPlusOKS = not aPlusMode or aPlusShort
+
 // ═══════════════════════════ FILTERS ═══════════════════════════
 body     = math.abs(close - open)
 dispOK   = body >= dispMult * atrVal
@@ -713,13 +910,13 @@ volOK  = not useVolSpike or (not na(volume) and volume >= volMult * volAvg)
 rangeUsed = adrD > 0 ? (cdH - cdL) / adrD : 0.0
 adrSpent  = useADR and rangeUsed >= adrCap
 
-// Confluence score — liquidity/PA weighted (v4)
-scoreL = (inLondon or inNY or inSB ? 1 : 0) + (extQualityL ? 1 : 0) + (nestedLong ? 1 : 0) + (premDiscLongOK ? 1 : 0) + (useSMT and smtBullRaw ? 2 : 0) + (qualityBull ? 1 : 0) + (useSessHier and hierLong ? 1 : 0) + (nearOpen ? 1 : 0) + (adrSpent ? 1 : 0) + (biasOn and close > biasEma ? 1 : 0) + (useStoch and stochLongRaw ? 1 : 0)
-scoreS = (inLondon or inNY or inSB ? 1 : 0) + (extQualityS ? 1 : 0) + (nestedShort ? 1 : 0) + (premDiscShortOK ? 1 : 0) + (useSMT and smtBearRaw ? 2 : 0) + (qualityBear ? 1 : 0) + (useSessHier and hierShort ? 1 : 0) + (nearOpen ? 1 : 0) + (adrSpent ? 1 : 0) + (biasOn and close < biasEma ? 1 : 0) + (useStoch and stochShortRaw ? 1 : 0)
-gradeL = scoreL >= 7 ? "A" : scoreL >= 5 ? "B" : "C"
-gradeS = scoreS >= 7 ? "A" : scoreS >= 5 ? "B" : "C"
-gradeOKL = gradeMode == "All" or (gradeMode == "A + B" and gradeL != "C") or (gradeMode == "A only" and gradeL == "A")
-gradeOKS = gradeMode == "All" or (gradeMode == "A + B" and gradeS != "C") or (gradeMode == "A only" and gradeS == "A")
+// Confluence score — liquidity/PA weighted (v5 elite)
+scoreL = (inLondon or inNY or inSB ? 1 : 0) + (extQualityL ? 1 : 0) + (nestedLong ? 1 : 0) + (premDiscLongOK ? 1 : 0) + (smtBullRaw ? 2 : 0) + (qualityBull ? 1 : 0) + (useSessHier and hierLong ? 1 : 0) + (nearOpen or nearNDOG or nearNWOG ? 1 : 0) + (adrSpent ? 1 : 0) + (biasOn and close > biasEma ? 1 : 0) + (useStoch and stochLongRaw ? 1 : 0) + (not na(drawBSL) ? 1 : 0) + (inHtfBullPOI ? 1 : 0) + (inBullIFVG ? 1 : 0) + (nearBPR ? 1 : 0) + (amdPhase == "DIST" ? 1 : 0) + (timeConf and useTimeConf ? 1 : 0)
+scoreS = (inLondon or inNY or inSB ? 1 : 0) + (extQualityS ? 1 : 0) + (nestedShort ? 1 : 0) + (premDiscShortOK ? 1 : 0) + (smtBearRaw ? 2 : 0) + (qualityBear ? 1 : 0) + (useSessHier and hierShort ? 1 : 0) + (nearOpen or nearNDOG or nearNWOG ? 1 : 0) + (adrSpent ? 1 : 0) + (biasOn and close < biasEma ? 1 : 0) + (useStoch and stochShortRaw ? 1 : 0) + (not na(drawSSL) ? 1 : 0) + (inHtfBearPOI ? 1 : 0) + (inBearIFVG ? 1 : 0) + (nearBPR ? 1 : 0) + (amdPhase == "DIST" ? 1 : 0) + (timeConf and useTimeConf ? 1 : 0)
+gradeL = scoreL >= 10 ? "A+" : scoreL >= 7 ? "A" : scoreL >= 5 ? "B" : "C"
+gradeS = scoreS >= 10 ? "A+" : scoreS >= 7 ? "A" : scoreS >= 5 ? "B" : "C"
+gradeOKL = gradeMode == "All" or (gradeMode == "A + B" and gradeL != "C") or (gradeMode == "A only" and (gradeL == "A" or gradeL == "A+"))
+gradeOKS = gradeMode == "All" or (gradeMode == "A + B" and gradeS != "C") or (gradeMode == "A only" and (gradeS == "A" or gradeS == "A+"))
 
 // Pure Liquidity mode: EMA / Stoch / PTJ never veto — liquidity gates do
 hardF   = strictMode == "Hard filters"
@@ -748,8 +945,8 @@ volDead       = useStay and atrVal < volBandLo * atrBase
 macroConflict = useStay and useConflict and biasOn and useDXY and ((close > biasEma and dxyC > dxyE) or (close < biasEma and dxyC < dxyE))
 friLate       = useStay and useFriClose and dayofweek(time, TZ_NY) == dayofweek.friday and not na(time(timeframe.period, friSess, TZ_NY))
 capHit        = signalsToday >= maxSigDay
-standAside    = volChaos or volDead or macroConflict or friLate or (useStay and capHit)
-string stayWhy = volChaos ? "News-level volatility (Livermore: sit out)" : volDead ? "Dead market - nothing to win" : macroConflict ? "Bias vs DXY conflict = no conviction (Druckenmiller)" : friLate ? "Friday close-out - weekend risk" : capHit ? "Daily limit hit - stop (PTJ: do not overtrade)" : ""
+standAside    = volChaos or volDead or macroConflict or friLate or (useStay and capHit) or inNews
+string stayWhy = inNews ? "News blackout - stand aside" : volChaos ? "News-level volatility (Livermore: sit out)" : volDead ? "Dead market - nothing to win" : macroConflict ? "Bias vs DXY conflict = no conviction (Druckenmiller)" : friLate ? "Friday close-out - weekend risk" : capHit ? "Daily limit hit - stop (PTJ: do not overtrade)" : ""
 
 canSignal = signalsToday < maxSigDay and (bar_index - lastSigBar) >= coolB and not standAside
 
@@ -803,9 +1000,9 @@ f_findBearOB() =>
 // Flag to clear pending state in global scope (Pine forbids := on globals inside functions)
 bool clearPend = false
 
-// Raw reversal setups — liquidity/PA gates first
-revLongSetup  = allowRev and anyBull and bullCndl and dispOK and gBiasL and gCorrL and sessionOK and gStochL and gPtjL and volOK and gradeOKL and hierOKL and nestOKL and premDiscLongOK and smtLongOK and (not hardF or qualityBull or minWickRatio <= 0)
-revShortSetup = allowRev and anyBear and bearCndl and dispOK and gBiasS and gCorrS and sessionOK and gStochS and gPtjS and volOK and gradeOKS and hierOKS and nestOKS and premDiscShortOK and smtShortOK and (not hardF or qualityBear or minWickRatio <= 0)
+// Raw reversal setups — liquidity/PA + elite gates
+revLongSetup  = allowRev and anyBull and bullCndl and dispOK and gBiasL and gCorrL and sessionOK and gStochL and gPtjL and volOK and gradeOKL and hierOKL and nestOKL and premDiscLongOK and smtLongOK and drawLongOK and poiLongOK and amdLongOK and aPlusOKL and (not hardF or qualityBull or minWickRatio <= 0)
+revShortSetup = allowRev and anyBear and bearCndl and dispOK and gBiasS and gCorrS and sessionOK and gStochS and gPtjS and volOK and gradeOKS and hierOKS and nestOKS and premDiscShortOK and smtShortOK and drawShortOK and poiShortOK and amdShortOK and aPlusOKS and (not hardF or qualityBear or minWickRatio <= 0)
 contLongSig   = allowCont and contLong  and bullCndl and dispOK and gBiasL and gCorrL and sessionOK and gPtjL and volOK and gradeOKL and premDiscLongOK and not adrSpent and canSignal
 contShortSig  = allowCont and contShort and bearCndl and dispOK and gBiasS and gCorrS and sessionOK and gPtjS and volOK and gradeOKS and premDiscShortOK and not adrSpent and canSignal
 
@@ -980,11 +1177,12 @@ if pendDir != 0 and proMode and pendMSS and waitEntry == 0
         ceLevel := (fvgTop + fvgBot) / 2.0
         waitEntry := fvgWB
         zoneBorn := bar_index
+        bool uniZone = useUnicorn and not na(brkTop) and not na(brkBot) and fvgBot <= brkTop and fvgTop >= brkBot
         if showFVGBox
             if pendDir == 1
-                zoneBox := box.new(bar_index - 2, fvgTop, bar_index + fvgWB, fvgBot, border_color = color.green, bgcolor = color.new(color.green, 88), text = "BUY CE/OB/FVG", text_color = color.green)
+                zoneBox := box.new(bar_index - 2, fvgTop, bar_index + fvgWB, fvgBot, border_color = color.green, bgcolor = color.new(color.green, 88), text = uniZone ? "BUY UNICORN" : "BUY CE/OB/FVG", text_color = color.green)
             else
-                zoneBox := box.new(bar_index - 2, fvgTop, bar_index + fvgWB, fvgBot, border_color = color.red, bgcolor = color.new(color.red, 88), text = "SELL CE/OB/FVG", text_color = color.red)
+                zoneBox := box.new(bar_index - 2, fvgTop, bar_index + fvgWB, fvgBot, border_color = color.red, bgcolor = color.new(color.red, 88), text = uniZone ? "SELL UNICORN" : "SELL CE/OB/FVG", text_color = color.red)
         pendBars := 0
     else
         pendBars -= 1
@@ -1009,7 +1207,8 @@ if waitEntry > 0
         else if bar_index > zoneBorn and low <= touchL and oteLongOK and canSignal and (not proMode or pendMSS)
             fireLong := true
             slLong   := armSL
-            tagLong  := (proMode ? "PRO-Long " : "FVG-Long ") + pendTag + (pendPool != "" ? " " + pendPool : "") + (useSMT and smtBullRaw ? " SMT" : "")
+            bool uniL = useUnicorn and not na(brkTop) and not na(brkBot) and not na(fvgTop) and fvgBot <= brkTop and fvgTop >= brkBot
+            tagLong  := (proMode ? "PRO-Long " : "FVG-Long ") + pendTag + (pendPool != "" ? " " + pendPool : "") + (smtBullRaw ? " SMT" : "") + (uniL ? " UNI" : "") + (inBullIFVG ? " IFVG" : "") + (aPlusLong ? " A+" : "")
             clearPend := true
         else
             waitEntry -= 1
@@ -1022,7 +1221,8 @@ if waitEntry > 0
         else if bar_index > zoneBorn and high >= touchS and oteShortOK and canSignal and (not proMode or pendMSS)
             fireShort := true
             slShort   := armSL
-            tagShort  := (proMode ? "PRO-Short " : "FVG-Short ") + pendTag + (pendPool != "" ? " " + pendPool : "") + (useSMT and smtBearRaw ? " SMT" : "")
+            bool uniS = useUnicorn and not na(brkTop) and not na(brkBot) and not na(fvgTop) and fvgBot <= brkTop and fvgTop >= brkBot
+            tagShort  := (proMode ? "PRO-Short " : "FVG-Short ") + pendTag + (pendPool != "" ? " " + pendPool : "") + (smtBearRaw ? " SMT" : "") + (uniS ? " UNI" : "") + (inBearIFVG ? " IFVG" : "") + (aPlusShort ? " A+" : "")
             clearPend := true
         else
             waitEntry -= 1
@@ -1085,10 +1285,11 @@ f_bestBelow(array<LiqLevel> arr, float curBest) =>
     best
 
 f_oppLong() =>
-    float best = f_bestAbove(staticLevels, na)
+    // Prefer HTF draw BSL when available
+    float best = useHTFDraw and not na(drawBSL) ? drawBSL : na
+    best := f_bestAbove(staticLevels, best)
     best := f_bestAbove(dynLevels, best)
     best := f_bestAbove(roundLevels, best)
-    // Institutional opens above price as targets
     if useOpens
         if not na(dayOpen) and dayOpen > close
             best := na(best) ? dayOpen : math.min(best, dayOpen)
@@ -1096,10 +1297,16 @@ f_oppLong() =>
             best := na(best) ? weekOpen : math.min(best, weekOpen)
         if not na(midOpen) and midOpen > close
             best := na(best) ? midOpen : math.min(best, midOpen)
+    if useNDOG
+        if not na(ndogTop) and ndogTop > close
+            best := na(best) ? ndogTop : math.min(best, ndogTop)
+        if not na(nwogTop) and nwogTop > close
+            best := na(best) ? nwogTop : math.min(best, nwogTop)
     best
 
 f_oppShort() =>
-    float best = f_bestBelow(staticLevels, na)
+    float best = useHTFDraw and not na(drawSSL) ? drawSSL : na
+    best := f_bestBelow(staticLevels, best)
     best := f_bestBelow(dynLevels, best)
     best := f_bestBelow(roundLevels, best)
     if useOpens
@@ -1109,6 +1316,11 @@ f_oppShort() =>
             best := na(best) ? weekOpen : math.max(best, weekOpen)
         if not na(midOpen) and midOpen < close
             best := na(best) ? midOpen : math.max(best, midOpen)
+    if useNDOG
+        if not na(ndogBot) and ndogBot < close
+            best := na(best) ? ndogBot : math.max(best, ndogBot)
+        if not na(nwogBot) and nwogBot < close
+            best := na(best) ? nwogBot : math.max(best, nwogBot)
     best
 
 // ═══════════════════════════ SIGNAL OUTPUT ═══════════════════════════
@@ -1183,6 +1395,7 @@ plotshape(showMSSMarks and mssShortMark and not useSimple, title = "MSS Short", 
 plotshape(showMSSMarks and cisdLongMark,  title = "CISD Long",  text = "CISD", style = shape.circle, location = location.belowbar, color = color.new(color.teal, 40), size = size.tiny)
 plotshape(showMSSMarks and cisdShortMark, title = "CISD Short", text = "CISD", style = shape.circle, location = location.abovebar, color = color.new(color.orange, 40), size = size.tiny)
 
+// Session killzone tint (AMD tint applied near table section)
 bgcolor(showBG and inLondon ? color.new(color.blue, 94) : showBG and inSB ? color.new(color.green, 92) : showBG and inNY ? color.new(color.purple, 94) : na)
 
 londonStart = inLondon and not inLondon[1]
@@ -1206,7 +1419,7 @@ if showStochLines
     if k15 <= stochOS and not (k15[1] <= stochOS)
         label.new(bar_index, low - stOff * 1.8, useSimple ? "Sellers tired 15m (BUY side ready)" : "15m OS", style = label.style_label_upper_right, color = f_lblBg(color.teal), textcolor = f_lblTx(color.teal), size = size.tiny)
     if k15 >= stochOB and not (k15[1] >= stochOB)
-        label.new(bar_index, high + stOff * 1.8, useSimple ? "Buyers tired 15m (SELL side ready)" : "15m OB", style = label.style_label_lower_right, color = f_lblBg(color.yellow), textcolor = hiContrast ? color.black : color.yellow, size = size.tiny)
+        label.new(bar_index, high + stOff * 1.8, useSimple ? "Buyers tired 15m (SELL side ready)" : "15m OB", style = label.style_label_lower_right, color = f_lblBg(color.yellow), textcolor = f_lblTx(color.yellow), size = size.tiny)
 
 // ═══════════════════════════ SMART LABEL PINNING (anti-overlap UX) ═══════════════════════════
 // Sort-free cluster bump: each new label near an existing one gets a higher
@@ -1286,8 +1499,8 @@ if pinLabels and barstate.islast
         for i = 0 to n - 1
             f_pinOne(array.get(allLbs, i), array.get(allLns, i), array.get(allYs, i))
 
-// ═══════════════════════════ TABLE (v3.2 light look by default) ═══════════════════════════
-var table t = table.new(position.top_right, 2, 20, bgcolor = color.new(color.white, 10), border_color = color.black, border_width = 1)
+// ═══════════════════════════ TABLE (v3.2 light look + v5 elite rows) ═══════════════════════════
+var table t = table.new(position.top_right, 2, 25, bgcolor = color.new(color.white, 10), border_color = color.black, border_width = 1)
 
 if showTable and barstate.islast
     color tblKey  = lightTable ? color.black : color.rgb(226, 232, 240)
@@ -1299,11 +1512,10 @@ if showTable and barstate.islast
 
     string biasTxt = not biasOn ? "Off" : close > biasEma ? (useSimple ? "UP - buying is safer" : "Bullish") : (useSimple ? "DOWN - selling is safer" : "Bearish")
     color  biasCol = not biasOn ? color.gray : close > biasEma ? tblGood : tblBad
-    string dxyTxt  = not useDXY ? "Off" : dxyC < dxyE ? (useSimple ? "Falling - helps gold go UP" : "Weak (gold +)") : (useSimple ? "Rising - pushes gold DOWN" : "Strong (gold -)")
-    color  dxyCol  = not useDXY ? color.gray : dxyC < dxyE ? tblGood : tblBad
+    string dxyTxt  = useSmtDXY and smtDxyBull ? (useSimple ? "DXY SMT = gold BUY bias" : "SMT bull vs DXY") : useSmtDXY and smtDxyBear ? (useSimple ? "DXY SMT = gold SELL bias" : "SMT bear vs DXY") : not useDXY ? (useSmtDXY ? (useSimple ? "No DXY SMT yet" : "SMT flat") : "Off") : dxyC < dxyE ? (useSimple ? "Falling - helps gold go UP" : "Weak (gold +)") : (useSimple ? "Rising - pushes gold DOWN" : "Strong (gold -)")
+    color  dxyCol  = smtDxyBull ? tblGood : smtDxyBear ? tblBad : not useDXY ? color.gray : dxyC < dxyE ? tblGood : tblBad
     string sessTxt = inSB ? (useSimple ? "BEST hour of the day" : "Silver Bullet") : inLondon ? (useSimple ? "London open - good time" : "London KZ") : inNY ? (useSimple ? "New York open - good time" : "NY KZ") : (useSimple ? "Quiet hours - no trading" : "Outside")
     color  sessCol = inSB or inLondon or inNY ? tblGood : tblBad
-    // Tired meter always shows 5m / 15m (same as your screenshot)
     string stochTxt = str.tostring(k5, "#.#") + " / " + str.tostring(k15, "#.#")
     color  stochCol = k5 <= stochOS and k15 <= stochOS ? tblGood : k5 >= stochOB and k15 >= stochOB ? color.orange : tblKey
     string lastTxt = lastTag == "" ? "-" : lastTag + " @ " + str.tostring(lastEntry, format.mintick) + "\n" + str.format_time(lastSigTime, "dd MMM yyyy HH:mm", sigTZ) + "\nSL " + str.tostring(lastSL, format.mintick) + " | TP1 " + str.tostring(lastTP1, format.mintick) + "\nTP2 " + str.tostring(lastTP2, format.mintick)
@@ -1322,37 +1534,47 @@ if showTable and barstate.islast
          (londonLowSweptNY or londonHighSweptNY ? (useSimple ? (asiaLowSweptLondon or asiaHighSweptLondon ? " · " : "") + "NY swept London" : (asiaLowSweptLondon or asiaHighSweptLondon ? " · " : "") + "NY>London") : "")
     hierTxt := hierTxt == "" ? (useSimple ? "No session hunt yet" : "None") : hierTxt
 
-    table.cell(t, 0, 0, "GOLD LiqSweep PRO v4.4", text_color = color.white, bgcolor = color.navy, text_size = size.small)
-    table.cell(t, 1, 0, standAside ? (useSimple ? "DO NOT TRADE" : "STAND ASIDE") : (useSimple ? "WATCHING" : "SCANNING"), text_color = color.white, bgcolor = standAside ? color.red : color.new(color.green, 30), text_size = size.small)
+    table.cell(t, 0, 0, "GOLD LiqSweep PRO v5.0", text_color = color.white, bgcolor = color.navy, text_size = size.small)
+    table.cell(t, 1, 0, standAside ? (useSimple ? "DO NOT TRADE" : "STAND ASIDE") : aPlusMode ? (useSimple ? "A+ FILTER ON" : "A+ MODE") : (useSimple ? "WATCHING" : "SCANNING"), text_color = color.white, bgcolor = standAside ? color.red : aPlusMode ? color.rgb(21, 101, 192) : color.new(color.green, 30), text_size = size.small)
     table.cell(t, 0, 1, useSimple ? "Big trend (4H)" : "Bias", text_color = tblMute, text_size = size.small)
     table.cell(t, 1, 1, biasTxt, text_color = biasCol, text_size = size.small)
-    table.cell(t, 0, 2, useSimple ? "US Dollar" : "DXY", text_color = tblMute, text_size = size.small)
+    table.cell(t, 0, 2, useSimple ? "US Dollar / SMT" : "DXY / SMT", text_color = tblMute, text_size = size.small)
     table.cell(t, 1, 2, dxyTxt, text_color = dxyCol, text_size = size.small)
     table.cell(t, 0, 3, useSimple ? "Time of day" : "Session", text_color = tblMute, text_size = size.small)
-    table.cell(t, 1, 3, sessTxt, text_color = sessCol, text_size = size.small)
+    table.cell(t, 1, 3, sessTxt + (useTimeConf and timeConf ? (useSimple ? " · :00/:30" : " · time✓") : ""), text_color = sessCol, text_size = size.small)
     table.cell(t, 0, 4, useSimple ? "Yesterday High / Low" : "PDH / PDL", text_color = tblMute, text_size = size.small)
     table.cell(t, 1, 4, str.tostring(na(lvlPDH.price) ? pdh : lvlPDH.price, format.mintick) + " / " + str.tostring(na(lvlPDL.price) ? pdl : lvlPDL.price, format.mintick), text_color = tblKey, text_size = size.small)
     table.cell(t, 0, 5, useSimple ? "Today High / Low" : "Day H/L (live)", text_color = tblMute, text_size = size.small)
     table.cell(t, 1, 5, dayLiveTxt, text_color = tblKey, text_size = size.small)
     table.cell(t, 0, 6, useSimple ? "This week High / Low" : "Week H/L (live)", text_color = tblMute, text_size = size.small)
     table.cell(t, 1, 6, weekLiveTxt, text_color = tblKey, text_size = size.small)
-    table.cell(t, 0, 7, useSimple ? "Double tops/bottoms" : "EQ pools live", text_color = tblMute, text_size = size.small)
-    table.cell(t, 1, 7, str.tostring(array.size(dynLevels)) + (useRound ? " + " + str.tostring(array.size(roundLevels)) + " rounds" : ""), text_color = tblKey, text_size = size.small)
-    table.cell(t, 0, 8, useSimple ? "Tired meter 5m/15m" : "StochRSI 5m/15m", text_color = tblMute, text_size = size.small)
-    table.cell(t, 1, 8, stochTxt + (not useSimple or na(k5) ? "" : k5 <= stochOS and k15 <= stochOS ? " (sellers tired = BUY ready)" : k5 >= stochOB and k15 >= stochOB ? " (buyers tired = SELL ready)" : " (nobody tired yet)"), text_color = stochCol, text_size = size.small)
-    table.cell(t, 0, 9, useSimple ? "Institutional setup" : "Pending PRO", text_color = tblMute, text_size = size.small)
-    table.cell(t, 1, 9, pendTxt, text_color = pendCol, text_size = size.small)
-    table.cell(t, 0, 10, useSimple ? "Session hunt" : "Hierarchy", text_color = tblMute, text_size = size.small)
-    table.cell(t, 1, 10, hierTxt, text_color = (asiaLowSweptLondon or asiaHighSweptLondon or londonLowSweptNY or londonHighSweptNY) ? tblGood : color.gray, text_size = size.small)
+    table.cell(t, 0, 7, useSimple ? "Tired meter 5m/15m" : "StochRSI 5m/15m", text_color = tblMute, text_size = size.small)
+    table.cell(t, 1, 7, stochTxt + (not useSimple or na(k5) ? "" : k5 <= stochOS and k15 <= stochOS ? " (sellers tired = BUY ready)" : k5 >= stochOB and k15 >= stochOB ? " (buyers tired = SELL ready)" : " (nobody tired yet)"), text_color = stochCol, text_size = size.small)
+    table.cell(t, 0, 8, useSimple ? "Institutional setup" : "Pending PRO", text_color = tblMute, text_size = size.small)
+    table.cell(t, 1, 8, pendTxt, text_color = pendCol, text_size = size.small)
+    table.cell(t, 0, 9, useSimple ? "Session hunt" : "Hierarchy", text_color = tblMute, text_size = size.small)
+    table.cell(t, 1, 9, hierTxt, text_color = (asiaLowSweptLondon or asiaHighSweptLondon or londonLowSweptNY or londonHighSweptNY) ? tblGood : color.gray, text_size = size.small)
 
     string pdTxt = na(dealEq) ? "-" : (inDiscount ? (useSimple ? "DISCOUNT - buys preferred" : "Discount") : (useSimple ? "PREMIUM - sells preferred" : "Premium"))
     color pdCol = na(dealEq) ? color.gray : inDiscount ? tblGood : tblBad
-    string smtTxt = not useSMT ? "Off" : smtBullRaw ? (useSimple ? "Silver weak = gold BUY bias" : "Bullish SMT") : smtBearRaw ? (useSimple ? "Silver strong = gold SELL bias" : "Bearish SMT") : (useSimple ? "No SMT yet" : "None")
-    color smtCol = not useSMT ? color.gray : smtBullRaw ? tblGood : smtBearRaw ? tblBad : color.gray
-    table.cell(t, 0, 11, useSimple ? "Value area" : "Prem/Disc", text_color = tblMute, text_size = size.small)
-    table.cell(t, 1, 11, pdTxt + (pureLiq ? (useSimple ? " · pure liq ON" : " · pure") : ""), text_color = pdCol, text_size = size.small)
-    table.cell(t, 0, 12, useSimple ? "SMT (Gold/Silver)" : "SMT", text_color = tblMute, text_size = size.small)
-    table.cell(t, 1, 12, smtTxt, text_color = smtCol, text_size = size.small)
+    string smtTxt = smtBullRaw ? (useSimple ? "BUY bias (Ag/DXY SMT)" : "Bull SMT") : smtBearRaw ? (useSimple ? "SELL bias (Ag/DXY SMT)" : "Bear SMT") : (useSimple ? "No SMT yet" : "None")
+    color smtCol = smtBullRaw ? tblGood : smtBearRaw ? tblBad : color.gray
+    table.cell(t, 0, 10, useSimple ? "Value area" : "Prem/Disc", text_color = tblMute, text_size = size.small)
+    table.cell(t, 1, 10, pdTxt + (pureLiq ? (useSimple ? " · pure liq ON" : " · pure") : ""), text_color = pdCol, text_size = size.small)
+    table.cell(t, 0, 11, useSimple ? "SMT (Ag + DXY)" : "SMT", text_color = tblMute, text_size = size.small)
+    table.cell(t, 1, 11, smtTxt, text_color = smtCol, text_size = size.small)
+
+    // Elite rows
+    color drawCol = not na(drawBSL) and not na(drawSSL) ? tblKey : not na(drawBSL) ? tblGood : not na(drawSSL) ? tblBad : color.gray
+    table.cell(t, 0, 12, useSimple ? "Draw on liquidity" : "HTF Draw", text_color = tblMute, text_size = size.small)
+    table.cell(t, 1, 12, drawTxt, text_color = drawCol, text_size = size.small)
+    color amdCol = amdPhase == "DIST" ? tblGood : amdPhase == "MAN" ? color.orange : amdPhase == "ACC" ? color.rgb(21, 101, 192) : color.gray
+    table.cell(t, 0, 13, useSimple ? "Power of 3 (AMD)" : "AMD", text_color = tblMute, text_size = size.small)
+    table.cell(t, 1, 13, amdTxt, text_color = amdCol, text_size = size.small)
+    string poiTxt = not useHTFPOI ? "Off" : inHtfBullPOI ? (useSimple ? "Inside 1H BUY shelf" : "Bull POI") : inHtfBearPOI ? (useSimple ? "Inside 1H SELL shelf" : "Bear POI") : (useSimple ? "No HTF POI touch" : "Flat")
+    color poiCol = inHtfBullPOI ? tblGood : inHtfBearPOI ? tblBad : color.gray
+    table.cell(t, 0, 14, useSimple ? "HTF POI (1H FVG)" : "HTF POI", text_color = tblMute, text_size = size.small)
+    table.cell(t, 1, 14, poiTxt + (nearBPR ? (useSimple ? " · BPR" : " · BPR") : "") + (inBullIFVG or inBearIFVG ? " · IFVG" : "") + (nearNDOG or nearNWOG ? " · GAP" : ""), text_color = poiCol, text_size = size.small)
 
     string tkBias  = useSimple ? "trend is against you. " : "Bias "
     string tkDxy   = useSimple ? "dollar is against you. " : "DXY "
@@ -1360,43 +1582,75 @@ if showTable and barstate.islast
     string tkMA    = useSimple ? "wrong side of 200-day line. " : "200MA "
     string tkSess  = useSimple ? "quiet hours. " : "Session "
     string tkMSS   = useSimple ? "waiting structure flip after sweep. " : "MSS "
-    string blkL = (biasOn and close <= biasEma ? tkBias : "") + (useDXY and dxyC >= dxyE ? tkDxy : "") + (useStoch and not stochLongRaw ? tkStoch : "") + (usePTJ and close <= sma200d ? tkMA : "") + (useSessFilter and not (inLondon or inNY or inSB) ? tkSess : "") + (proMode and pendDir != 1 ? "" : "") + (proMode and pendDir == 1 and not pendMSS ? tkMSS : "")
-    string blkS = (biasOn and close >= biasEma ? tkBias : "") + (useDXY and dxyC <= dxyE ? tkDxy : "") + (useStoch and not stochShortRaw ? tkStoch : "") + (usePTJ and close >= sma200d ? tkMA : "") + (useSessFilter and not (inLondon or inNY or inSB) ? tkSess : "") + (proMode and pendDir == -1 and not pendMSS ? tkMSS : "")
+    string tkDraw  = useSimple ? "no clear draw target. " : "Draw "
+    string tkAplus = useSimple ? "not A+ confluence yet. " : "A+ "
+    string blkL = (biasOn and close <= biasEma ? tkBias : "") + (useDXY and dxyC >= dxyE ? tkDxy : "") + (useStoch and not stochLongRaw ? tkStoch : "") + (usePTJ and close <= sma200d ? tkMA : "") + (useSessFilter and not (inLondon or inNY or inSB) ? tkSess : "") + (proMode and pendDir == 1 and not pendMSS ? tkMSS : "") + (useHTFDraw and requireDraw and na(drawBSL) ? tkDraw : "") + (aPlusMode and not aPlusLong ? tkAplus : "")
+    string blkS = (biasOn and close >= biasEma ? tkBias : "") + (useDXY and dxyC <= dxyE ? tkDxy : "") + (useStoch and not stochShortRaw ? tkStoch : "") + (usePTJ and close >= sma200d ? tkMA : "") + (useSessFilter and not (inLondon or inNY or inSB) ? tkSess : "") + (proMode and pendDir == -1 and not pendMSS ? tkMSS : "") + (useHTFDraw and requireDraw and na(drawSSL) ? tkDraw : "") + (aPlusMode and not aPlusShort ? tkAplus : "")
     bool readyL = blkL == ""
     bool readyS = blkS == ""
     blkL := readyL ? (useSimple ? "YES - if price fakes BELOW a line + structure flips" : "READY - sweep→MSS→zone") : (useSimple ? "Not yet: " : hardF ? "Blocked: " : "Grade cost: ") + blkL
     blkS := readyS ? (useSimple ? "YES - if price fakes ABOVE a line + structure flips" : "READY - sweep→MSS→zone") : (useSimple ? "Not yet: " : hardF ? "Blocked: " : "Grade cost: ") + blkS
-    table.cell(t, 0, 13, useSimple ? "Can I BUY?" : "BUY side", text_color = tblMute, text_size = size.small)
-    table.cell(t, 1, 13, blkL, text_color = readyL ? tblGood : hardF and not pureLiq ? tblBad : color.gray, text_size = size.small)
-    table.cell(t, 0, 14, useSimple ? "Can I SELL?" : "SELL side", text_color = tblMute, text_size = size.small)
-    table.cell(t, 1, 14, blkS, text_color = readyS ? tblGood : hardF and not pureLiq ? tblBad : color.gray, text_size = size.small)
+    table.cell(t, 0, 15, useSimple ? "Can I BUY?" : "BUY side", text_color = tblMute, text_size = size.small)
+    table.cell(t, 1, 15, blkL, text_color = readyL ? tblGood : hardF and not pureLiq ? tblBad : color.gray, text_size = size.small)
+    table.cell(t, 0, 16, useSimple ? "Can I SELL?" : "SELL side", text_color = tblMute, text_size = size.small)
+    table.cell(t, 1, 16, blkS, text_color = readyS ? tblGood : hardF and not pureLiq ? tblBad : color.gray, text_size = size.small)
     string adrTxt = na(rangeUsed) ? "-" : str.tostring(rangeUsed * 100, "#") + "% ($" + str.tostring(cdH - cdL, "#.#") + " moved / $" + str.tostring(adrD, "#.#") + " normal)" + (adrSpent ? (useSimple ? " - day done. Only fake-outs at high/low" : " - fade extremes only") : "")
     color adrCol = na(rangeUsed) ? color.gray : adrSpent ? tblBad : rangeUsed >= 0.7 * adrCap ? color.orange : tblGood
-    table.cell(t, 0, 15, useSimple ? "Today's move used" : "Day range used", text_color = tblMute, text_size = size.small)
-    table.cell(t, 1, 15, adrTxt, text_color = adrCol, text_size = size.small)
-    table.cell(t, 0, 16, useSimple ? "Trade ideas today" : "Signals today", text_color = tblMute, text_size = size.small)
-    table.cell(t, 1, 16, str.tostring(signalsToday) + " / " + str.tostring(maxSigDay), text_color = tblKey, text_size = size.small)
-    table.cell(t, 0, 17, useSimple ? "Last trade idea" : "Last signal", text_color = tblMute, text_size = size.small)
-    table.cell(t, 1, 17, lastTxt, text_color = tblKey, text_size = size.small)
+    table.cell(t, 0, 17, useSimple ? "Today's move used" : "Day range used", text_color = tblMute, text_size = size.small)
+    table.cell(t, 1, 17, adrTxt, text_color = adrCol, text_size = size.small)
+    table.cell(t, 0, 18, useSimple ? "Trade ideas today" : "Signals today", text_color = tblMute, text_size = size.small)
+    table.cell(t, 1, 18, str.tostring(signalsToday) + " / " + str.tostring(maxSigDay) + " · score L/S " + str.tostring(scoreL, "#") + "/" + str.tostring(scoreS, "#"), text_color = tblKey, text_size = size.small)
+    table.cell(t, 0, 19, useSimple ? "Last trade idea" : "Last signal", text_color = tblMute, text_size = size.small)
+    table.cell(t, 1, 19, lastTxt, text_color = tblKey, text_size = size.small)
     if useSimple
         string actTxt = standAside ? "STAND ASIDE: " + stayWhy :
-             waitEntry > 0 and pendDir == 1 ? "WAIT: dip to CE/OTE buy zone" :
-             waitEntry > 0 and pendDir == -1 ? "WAIT: rise to CE/OTE sell zone" :
+             waitEntry > 0 and pendDir == 1 ? "WAIT: dip to CE/OTE buy zone (draw " + (na(drawBSL) ? "?" : str.tostring(drawBSL, format.mintick)) + ")" :
+             waitEntry > 0 and pendDir == -1 ? "WAIT: rise to CE/OTE sell zone (draw " + (na(drawSSL) ? "?" : str.tostring(drawSSL, format.mintick)) + ")" :
              pendDir == 1 and not pendMSS ? "WAIT: structure must flip UP after the sweep (MSS)" :
              pendDir == -1 and not pendMSS ? "WAIT: structure must flip DOWN after the sweep (MSS)" :
              usePremDisc and inPremium and not inDiscount ? "Premium: only look for SELL sweeps" :
              usePremDisc and inDiscount ? "Discount: only look for BUY sweeps" :
+             amdPhase == "ACC" ? "AMD Accumulation - wait for Judas sweep" :
+             amdPhase == "MAN" ? "AMD Manipulation - wait for Distribution" :
              adrSpent ? "Range spent: fade extremes only, no breakout trades" :
              useSessFilter and not (inLondon or inNY or inSB) ? "Market hours closed - do nothing" :
-             "Watch: inducement → external sweep → MSS → CE/OTE"
-        color actCol = standAside ? color.rgb(248, 113, 113) :
-             waitEntry > 0 and pendDir == 1 ? color.lime : waitEntry > 0 and pendDir == -1 ? color.rgb(248, 113, 113) :
+             "Watch: draw → inducement → sweep → MSS → CE/OTE"
+        color actCol = standAside ? tblBad :
+             waitEntry > 0 and pendDir == 1 ? tblGood : waitEntry > 0 and pendDir == -1 ? tblBad :
              pendDir != 0 ? color.orange :
-             useSessFilter and not (inLondon or inNY or inSB) ? tblMute : tblKey
-        table.cell(t, 0, 18, "Next action", text_color = color.white, bgcolor = color.rgb(30, 58, 138), text_size = size.small)
-        table.cell(t, 1, 18, actTxt, text_color = actCol, text_size = size.small)
-    table.cell(t, 0, 19, useSimple ? "Entry mode" : "Mode", text_color = tblMute, text_size = size.tiny)
-    table.cell(t, 1, 19, entryMode + (proMode ? " · MSS+CE/OTE" : "") + (pureLiq ? " · PURE" : ""), text_color = color.rgb(147, 197, 253), text_size = size.tiny)
+             useSessFilter and not (inLondon or inNY or inSB) ? color.gray : tblKey
+        table.cell(t, 0, 20, "Next action", text_color = color.white, bgcolor = color.navy, text_size = size.small)
+        table.cell(t, 1, 20, actTxt, text_color = actCol, text_size = size.small)
+    table.cell(t, 0, 21, useSimple ? "Elite edges" : "Edges", text_color = tblMute, text_size = size.tiny)
+    table.cell(t, 1, 21, (useHTFDraw ? "Draw " : "") + (useHTFPOI ? "POI " : "") + (useAMD ? "AMD " : "") + (useIFVG ? "IFVG " : "") + (useUnicorn ? "UNI " : "") + (useNDOG ? "GAP " : "") + (useBPR ? "BPR " : "") + (aPlusMode ? "A+" : ""), text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
+    table.cell(t, 0, 22, useSimple ? "Entry mode" : "Mode", text_color = tblMute, text_size = size.tiny)
+    table.cell(t, 1, 22, entryMode + (proMode ? " · MSS+CE/OTE" : "") + (pureLiq ? " · PURE" : "") + (aPlusMode ? " · A+" : ""), text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
+    table.cell(t, 0, 23, useSimple ? "Grade now L/S" : "Grade L/S", text_color = tblMute, text_size = size.tiny)
+    table.cell(t, 1, 23, gradeL + " / " + gradeS, text_color = (gradeL == "A+" or gradeS == "A+") ? tblGood : tblKey, text_size = size.tiny)
+    table.cell(t, 0, 24, useSimple ? "News window" : "News", text_color = tblMute, text_size = size.tiny)
+    table.cell(t, 1, 24, inNews ? (useSimple ? "BLACKOUT - do not trade" : "BLACKOUT") : (useNewsBlk ? (useSimple ? "Clear" : "OK") : "Off"), text_color = inNews ? tblBad : tblGood, text_size = size.tiny)
+
+// Elite visuals: draw rails + AMD tint
+var line drawUpLn = na
+var line drawDnLn = na
+var label drawUpLb = na
+var label drawDnLb = na
+if showEliteVis and barstate.islast
+    if not na(drawUpLn)
+        line.delete(drawUpLn)
+    if not na(drawDnLn)
+        line.delete(drawDnLn)
+    if not na(drawUpLb)
+        label.delete(drawUpLb)
+    if not na(drawDnLb)
+        label.delete(drawDnLb)
+    if useHTFDraw and not na(drawBSL)
+        drawUpLn := line.new(bar_index - 5, drawBSL, bar_index + 25, drawBSL, color = color.new(color.red, 40), width = 2, style = line.style_dashed)
+        drawUpLb := label.new(bar_index + 26, drawBSL, useSimple ? "DRAW UP (target) " + str.tostring(drawBSL, format.mintick) : "DRAW BSL " + str.tostring(drawBSL, format.mintick), style = label.style_label_left, color = f_lblBg(color.red), textcolor = f_lblTx(color.red), size = size.tiny)
+    if useHTFDraw and not na(drawSSL)
+        drawDnLn := line.new(bar_index - 5, drawSSL, bar_index + 25, drawSSL, color = color.new(color.green, 40), width = 2, style = line.style_dashed)
+        drawDnLb := label.new(bar_index + 26, drawSSL, useSimple ? "DRAW DOWN (target) " + str.tostring(drawSSL, format.mintick) : "DRAW SSL " + str.tostring(drawSSL, format.mintick), style = label.style_label_left, color = f_lblBg(color.green), textcolor = f_lblTx(color.green), size = size.tiny)
+bgcolor(showEliteVis and useAMD and amdPhase == "ACC" ? color.new(color.blue, 96) : showEliteVis and useAMD and amdPhase == "MAN" ? color.new(color.orange, 94) : showEliteVis and useAMD and amdPhase == "DIST" ? color.new(color.green, 96) : na, title = "AMD phase")
 
 // ═══════════════════════════ ALERTS ═══════════════════════════
 alertcondition(fireLong,  "Any BUY signal",  "GOLD PRO: BUY - check chart for entry/SL/TP lines")
@@ -1409,3 +1663,8 @@ alertcondition(standAside and not standAside[1], "Stay-away ON",  "GOLD PRO: STA
 alertcondition(not standAside and standAside[1], "Stay-away OFF", "GOLD PRO: Conditions normal again - scanning for setups")
 alertcondition(adrSpent and not adrSpent[1], "ADR exhausted", "GOLD PRO: Daily range spent - breakouts OFF, fade extremes only")
 alertcondition(asiaHighSweptLondon or asiaLowSweptLondon, "Judas (London vs Asia)", "GOLD PRO: London swept Asia range - classic institutional Judas setup")
+alertcondition(smtBullRaw and not smtBullRaw[1], "SMT bullish", "GOLD PRO: SMT bullish (Silver/DXY) - buy-side bias")
+alertcondition(smtBearRaw and not smtBearRaw[1], "SMT bearish", "GOLD PRO: SMT bearish (Silver/DXY) - sell-side bias")
+alertcondition(amdPhase == "DIST" and amdPhase[1] != "DIST", "AMD Distribution", "GOLD PRO: Power of 3 entered Distribution - look for continuation entries")
+alertcondition(aPlusLong and not aPlusLong[1], "A+ BUY confluence", "GOLD PRO: A+ buy confluence live - draw+nest+session+SMT/Judas")
+alertcondition(aPlusShort and not aPlusShort[1], "A+ SELL confluence", "GOLD PRO: A+ sell confluence live - draw+nest+session+SMT/Judas")
