@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Gold Liquidity Sweep PRO v5.1 — ELITE INSTITUTIONAL LIQUIDITY [Rajesh Sha]
+// Gold Liquidity Sweep PRO v5.2 — ELITE INSTITUTIONAL LIQUIDITY [Rajesh Sha]
 // v3.2 look kept (labels + StochRSI). v5 adds desk-grade edge pack.
-// v5.1: high-contrast label text (fixes unreadable dark-on-dark opens / levels).
+// v5.1: high-contrast label text. v5.2: 4H trend always live in table (filter optional).
 // COMPILE-FIXED: clearPend reset; const plotshape text.
 //
 // Core: Pool → Inducement → External sweep → CISD/MSS → Prem/Disc + OTE
@@ -12,8 +12,8 @@
 // USE: OANDA:XAUUSD, 1-minute. HTF non-repainting ([1]+lookahead_on).
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=6
-indicator("Gold Liquidity Sweep PRO v5.1 — Signals",
-     shorttitle = "GOLD LiqSweep PRO v5.1",
+indicator("Gold Liquidity Sweep PRO v5.2 — Signals",
+     shorttitle = "GOLD LiqSweep PRO v5.2",
      overlay = true,
      max_lines_count = 500,
      max_labels_count = 500,
@@ -101,10 +101,11 @@ newsSess2    = input.session("1400-1430", "News window 2 (NY)", group = grpElite
 aPlusMode    = input.bool(false, "A+ ONLY mode (strict)", group = grpElite, tooltip = "ON: signal only when Draw + Nest + Killzone + (SMT or Judas) + Prem/Disc agree. Fewer trades, higher quality.")
 showEliteVis = input.bool(true, "Show elite visuals (draw / gaps / AMD)", group = grpElite)
 
-grpBias = "Higher-Timeframe Bias (optional — off in Pure mode veto)"
-biasMode = input.string("Off (counter-trend allowed)", "Bias Mode", options = ["EMA Filter", "Off (counter-trend allowed)"], group = grpBias)
+grpBias = "Higher-Timeframe Bias (4H always computed — filter optional)"
+biasMode = input.string("Show only (no veto)", "Bias Mode", options = ["EMA Filter", "Show only (no veto)", "Off (hide)"], group = grpBias, tooltip = "4H EMA is always calculated. 'Show only' = table shows UP/DOWN but does not block trades (best with Pure Liquidity). 'EMA Filter' = hard/soft veto by mode.")
 biasTF   = input.timeframe("240", "Bias Timeframe", group = grpBias)
 biasLen  = input.int(200, "Bias EMA Length", group = grpBias)
+showBiasPlot = input.bool(true, "Plot 4H bias EMA on chart", group = grpBias)
 
 grpCorr = "Intermarket Filters"
 useDXY  = input.bool(false, "DXY EMA filter (legacy — prefer SMT)", group = grpCorr, tooltip = "Legacy EMA filter. Prefer Pure Liquidity SMT instead.")
@@ -899,8 +900,11 @@ bullCndl = close > open
 bearCndl = close < open
 
 biasOn    = biasMode == "EMA Filter"
-longBias  = not biasOn or close > biasEma
-shortBias = not biasOn or close < biasEma
+biasShow  = biasMode != "Off (hide)"
+biasUp4h  = not na(biasEma) and close > biasEma
+biasDn4h  = not na(biasEma) and close < biasEma
+longBias  = not biasOn or biasUp4h
+shortBias = not biasOn or biasDn4h
 
 longCorr  = (not useDXY or dxyC < dxyE) and (not useTNX or tnxC < tnxE)
 shortCorr = (not useDXY or dxyC > dxyE) and (not useTNX or tnxC > tnxE)
@@ -918,8 +922,8 @@ rangeUsed = adrD > 0 ? (cdH - cdL) / adrD : 0.0
 adrSpent  = useADR and rangeUsed >= adrCap
 
 // Confluence score — liquidity/PA weighted (v5 elite)
-scoreL = (inLondon or inNY or inSB ? 1 : 0) + (extQualityL ? 1 : 0) + (nestedLong ? 1 : 0) + (premDiscLongOK ? 1 : 0) + (smtBullRaw ? 2 : 0) + (qualityBull ? 1 : 0) + (useSessHier and hierLong ? 1 : 0) + (nearOpen or nearNDOG or nearNWOG ? 1 : 0) + (adrSpent ? 1 : 0) + (biasOn and close > biasEma ? 1 : 0) + (useStoch and stochLongRaw ? 1 : 0) + (not na(drawBSL) ? 1 : 0) + (inHtfBullPOI ? 1 : 0) + (inBullIFVG ? 1 : 0) + (nearBPR ? 1 : 0) + (amdPhase == "DIST" ? 1 : 0) + (timeConf and useTimeConf ? 1 : 0)
-scoreS = (inLondon or inNY or inSB ? 1 : 0) + (extQualityS ? 1 : 0) + (nestedShort ? 1 : 0) + (premDiscShortOK ? 1 : 0) + (smtBearRaw ? 2 : 0) + (qualityBear ? 1 : 0) + (useSessHier and hierShort ? 1 : 0) + (nearOpen or nearNDOG or nearNWOG ? 1 : 0) + (adrSpent ? 1 : 0) + (biasOn and close < biasEma ? 1 : 0) + (useStoch and stochShortRaw ? 1 : 0) + (not na(drawSSL) ? 1 : 0) + (inHtfBearPOI ? 1 : 0) + (inBearIFVG ? 1 : 0) + (nearBPR ? 1 : 0) + (amdPhase == "DIST" ? 1 : 0) + (timeConf and useTimeConf ? 1 : 0)
+scoreL = (inLondon or inNY or inSB ? 1 : 0) + (extQualityL ? 1 : 0) + (nestedLong ? 1 : 0) + (premDiscLongOK ? 1 : 0) + (smtBullRaw ? 2 : 0) + (qualityBull ? 1 : 0) + (useSessHier and hierLong ? 1 : 0) + (nearOpen or nearNDOG or nearNWOG ? 1 : 0) + (adrSpent ? 1 : 0) + (biasUp4h ? 1 : 0) + (useStoch and stochLongRaw ? 1 : 0) + (not na(drawBSL) ? 1 : 0) + (inHtfBullPOI ? 1 : 0) + (inBullIFVG ? 1 : 0) + (nearBPR ? 1 : 0) + (amdPhase == "DIST" ? 1 : 0) + (timeConf and useTimeConf ? 1 : 0)
+scoreS = (inLondon or inNY or inSB ? 1 : 0) + (extQualityS ? 1 : 0) + (nestedShort ? 1 : 0) + (premDiscShortOK ? 1 : 0) + (smtBearRaw ? 2 : 0) + (qualityBear ? 1 : 0) + (useSessHier and hierShort ? 1 : 0) + (nearOpen or nearNDOG or nearNWOG ? 1 : 0) + (adrSpent ? 1 : 0) + (biasDn4h ? 1 : 0) + (useStoch and stochShortRaw ? 1 : 0) + (not na(drawSSL) ? 1 : 0) + (inHtfBearPOI ? 1 : 0) + (inBearIFVG ? 1 : 0) + (nearBPR ? 1 : 0) + (amdPhase == "DIST" ? 1 : 0) + (timeConf and useTimeConf ? 1 : 0)
 gradeL = scoreL >= 10 ? "A+" : scoreL >= 7 ? "A" : scoreL >= 5 ? "B" : "C"
 gradeS = scoreS >= 10 ? "A+" : scoreS >= 7 ? "A" : scoreS >= 5 ? "B" : "C"
 gradeOKL = gradeMode == "All" or (gradeMode == "A + B" and gradeL != "C") or (gradeMode == "A only" and (gradeL == "A" or gradeL == "A+"))
@@ -1414,7 +1418,7 @@ plotshape(showBG and nyStart,     "New York open", text = "NEW YORK\ntrading ON"
 plotshape(showBG and sbStart,     "Silver Bullet", text = "SILVER\nBULLET",       style = shape.labeldown, location = location.top, color = color.green,  textcolor = color.white, size = size.tiny)
 plotshape(showBG and sessEnd,     "Session end",   text = "CLOSED\nno trading",   style = shape.labeldown, location = location.top, color = color.gray,   textcolor = color.white, size = size.tiny)
 
-plot(biasOn ? biasEma : na, "Bias EMA", color = color.new(color.gray, 40))
+plot(showBiasPlot and biasShow and not na(biasEma) ? biasEma : na, "4H Bias EMA", color = color.new(color.gray, 35), linewidth = 2)
 
 // StochRSI "tired meter" rails on price (KEEP — previous yellow/orange extremes)
 stOff = stochLineOff * atrVal
@@ -1533,10 +1537,13 @@ if showTable and barstate.islast
     table.set_bgcolor(t, lightTable ? color.new(color.white, 10) : color.new(color.rgb(15, 23, 42), 5))
     table.set_border_color(t, lightTable ? color.black : color.new(color.rgb(148, 163, 184), 40))
 
-    string biasTxt = not biasOn ? "Off" : close > biasEma ? (useSimple ? "UP - buying is safer" : "Bullish") : (useSimple ? "DOWN - selling is safer" : "Bearish")
-    color  biasCol = not biasOn ? color.gray : close > biasEma ? tblGood : tblBad
-    string dxyTxt  = useSmtDXY and smtDxyBull ? (useSimple ? "DXY SMT = gold BUY bias" : "SMT bull vs DXY") : useSmtDXY and smtDxyBear ? (useSimple ? "DXY SMT = gold SELL bias" : "SMT bear vs DXY") : not useDXY ? (useSmtDXY ? (useSimple ? "No DXY SMT yet" : "SMT flat") : "Off") : dxyC < dxyE ? (useSimple ? "Falling - helps gold go UP" : "Weak (gold +)") : (useSimple ? "Rising - pushes gold DOWN" : "Strong (gold -)")
-    color  dxyCol  = smtDxyBull ? tblGood : smtDxyBear ? tblBad : not useDXY ? color.gray : dxyC < dxyE ? tblGood : tblBad
+    // 4H trend ALWAYS shows live direction (unless user chose Off/hide)
+    string biasDir = na(biasEma) ? (useSimple ? "Loading 4H…" : "n/a") : biasUp4h ? (useSimple ? "UP - buying is safer" : "Bullish") : biasDn4h ? (useSimple ? "DOWN - selling is safer" : "Bearish") : (useSimple ? "Flat at EMA" : "Flat")
+    string biasFilt = biasMode == "EMA Filter" ? (useSimple ? " · filter ON" : " · veto") : biasMode == "Show only (no veto)" ? (useSimple ? " · filter off" : " · no veto") : ""
+    string biasTxt = not biasShow ? (useSimple ? "Hidden" : "Off") : biasDir + biasFilt
+    color  biasCol = not biasShow or na(biasEma) ? color.gray : biasUp4h ? tblGood : biasDn4h ? tblBad : color.orange
+    string dxyTxt  = useSmtDXY and smtDxyBull ? (useSimple ? "DXY SMT = gold BUY bias" : "SMT bull vs DXY") : useSmtDXY and smtDxyBear ? (useSimple ? "DXY SMT = gold SELL bias" : "SMT bear vs DXY") : useDXY ? (dxyC < dxyE ? (useSimple ? "Falling - helps gold go UP" : "Weak (gold +)") : (useSimple ? "Rising - pushes gold DOWN" : "Strong (gold -)")) : (useSmtDXY ? (useSimple ? "Waiting for DXY SMT" : "SMT flat") : (useSimple ? "DXY filter off" : "Off"))
+    color  dxyCol  = smtDxyBull ? tblGood : smtDxyBear ? tblBad : useDXY ? (dxyC < dxyE ? tblGood : tblBad) : color.gray
     string sessTxt = inSB ? (useSimple ? "BEST hour of the day" : "Silver Bullet") : inLondon ? (useSimple ? "London open - good time" : "London KZ") : inNY ? (useSimple ? "New York open - good time" : "NY KZ") : (useSimple ? "Quiet hours - no trading" : "Outside")
     color  sessCol = inSB or inLondon or inNY ? tblGood : tblBad
     string stochTxt = str.tostring(k5, "#.#") + " / " + str.tostring(k15, "#.#")
@@ -1557,7 +1564,7 @@ if showTable and barstate.islast
          (londonLowSweptNY or londonHighSweptNY ? (useSimple ? (asiaLowSweptLondon or asiaHighSweptLondon ? " · " : "") + "NY swept London" : (asiaLowSweptLondon or asiaHighSweptLondon ? " · " : "") + "NY>London") : "")
     hierTxt := hierTxt == "" ? (useSimple ? "No session hunt yet" : "None") : hierTxt
 
-    table.cell(t, 0, 0, "GOLD LiqSweep PRO v5.1", text_color = color.white, bgcolor = color.navy, text_size = size.small)
+    table.cell(t, 0, 0, "GOLD LiqSweep PRO v5.2", text_color = color.white, bgcolor = color.navy, text_size = size.small)
     table.cell(t, 1, 0, standAside ? (useSimple ? "DO NOT TRADE" : "STAND ASIDE") : aPlusMode ? (useSimple ? "A+ FILTER ON" : "A+ MODE") : (useSimple ? "WATCHING" : "SCANNING"), text_color = color.white, bgcolor = standAside ? color.red : aPlusMode ? color.rgb(21, 101, 192) : color.new(color.green, 30), text_size = size.small)
     table.cell(t, 0, 1, useSimple ? "Big trend (4H)" : "Bias", text_color = tblMute, text_size = size.small)
     table.cell(t, 1, 1, biasTxt, text_color = biasCol, text_size = size.small)
@@ -1607,12 +1614,19 @@ if showTable and barstate.islast
     string tkMSS   = useSimple ? "waiting structure flip after sweep. " : "MSS "
     string tkDraw  = useSimple ? "no clear draw target. " : "Draw "
     string tkAplus = useSimple ? "not A+ confluence yet. " : "A+ "
-    string blkL = (biasOn and close <= biasEma ? tkBias : "") + (useDXY and dxyC >= dxyE ? tkDxy : "") + (useStoch and not stochLongRaw ? tkStoch : "") + (usePTJ and close <= sma200d ? tkMA : "") + (useSessFilter and not (inLondon or inNY or inSB) ? tkSess : "") + (proMode and pendDir == 1 and not pendMSS ? tkMSS : "") + (useHTFDraw and requireDraw and na(drawBSL) ? tkDraw : "") + (aPlusMode and not aPlusLong ? tkAplus : "")
-    string blkS = (biasOn and close >= biasEma ? tkBias : "") + (useDXY and dxyC <= dxyE ? tkDxy : "") + (useStoch and not stochShortRaw ? tkStoch : "") + (usePTJ and close >= sma200d ? tkMA : "") + (useSessFilter and not (inLondon or inNY or inSB) ? tkSess : "") + (proMode and pendDir == -1 and not pendMSS ? tkMSS : "") + (useHTFDraw and requireDraw and na(drawSSL) ? tkDraw : "") + (aPlusMode and not aPlusShort ? tkAplus : "")
+    string tkPrem  = useSimple ? "price in premium (sells preferred). " : "Premium "
+    string tkDisc  = useSimple ? "price in discount (buys preferred). " : "Discount "
+    string blkL = (biasOn and not biasUp4h ? tkBias : "") + (useDXY and dxyC >= dxyE ? tkDxy : "") + (useStoch and not stochLongRaw ? tkStoch : "") + (usePTJ and close <= sma200d ? tkMA : "") + (useSessFilter and not (inLondon or inNY or inSB) ? tkSess : "") + (proMode and pendDir == 1 and not pendMSS ? tkMSS : "") + (useHTFDraw and requireDraw and na(drawBSL) ? tkDraw : "") + (aPlusMode and not aPlusLong ? tkAplus : "") + (usePremDisc and inPremium and not inDiscount ? tkPrem : "")
+    string blkS = (biasOn and not biasDn4h ? tkBias : "") + (useDXY and dxyC <= dxyE ? tkDxy : "") + (useStoch and not stochShortRaw ? tkStoch : "") + (usePTJ and close >= sma200d ? tkMA : "") + (useSessFilter and not (inLondon or inNY or inSB) ? tkSess : "") + (proMode and pendDir == -1 and not pendMSS ? tkMSS : "") + (useHTFDraw and requireDraw and na(drawSSL) ? tkDraw : "") + (aPlusMode and not aPlusShort ? tkAplus : "") + (usePremDisc and inDiscount and not inPremium ? tkDisc : "")
     bool readyL = blkL == ""
     bool readyS = blkS == ""
-    blkL := readyL ? (useSimple ? "YES - if price fakes BELOW a line + structure flips" : "READY - sweep→MSS→zone") : (useSimple ? "Not yet: " : hardF ? "Blocked: " : "Grade cost: ") + blkL
-    blkS := readyS ? (useSimple ? "YES - if price fakes ABOVE a line + structure flips" : "READY - sweep→MSS→zone") : (useSimple ? "Not yet: " : hardF ? "Blocked: " : "Grade cost: ") + blkS
+    // Clearer status: armed / preferred / watch — not both YES when discount favors buys only
+    blkL := pendDir == 1 ? (useSimple ? (pendMSS ? "ARMED BUY - wait dip into zone" : "BUY armed - wait structure flip UP") : "LONG pending") :
+         readyL ? (useSimple ? "WATCH BUY: fake BELOW a line + structure flips" : "READY - sweep→MSS→zone") :
+         (useSimple ? "Not yet: " : hardF ? "Blocked: " : "Grade cost: ") + blkL
+    blkS := pendDir == -1 ? (useSimple ? (pendMSS ? "ARMED SELL - wait rise into zone" : "SELL armed - wait structure flip DOWN") : "SHORT pending") :
+         readyS ? (useSimple ? "WATCH SELL: fake ABOVE a line + structure flips" : "READY - sweep→MSS→zone") :
+         (useSimple ? "Not yet: " : hardF ? "Blocked: " : "Grade cost: ") + blkS
     table.cell(t, 0, 15, useSimple ? "Can I BUY?" : "BUY side", text_color = tblMute, text_size = size.small)
     table.cell(t, 1, 15, blkL, text_color = readyL ? tblGood : hardF and not pureLiq ? tblBad : color.gray, text_size = size.small)
     table.cell(t, 0, 16, useSimple ? "Can I SELL?" : "SELL side", text_color = tblMute, text_size = size.small)
