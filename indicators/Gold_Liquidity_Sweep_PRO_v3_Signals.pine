@@ -1,27 +1,17 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Gold Liquidity Sweep PRO v6.1 — COMPLETE PLAYBOOK [Rajesh Sha]
+// Gold Liquidity Sweep PRO v6.2 — SIMPLE ENGLISH MAGNETS [Rajesh Sha]
 // v3.2 look + v5 elite edges + full v6 intraday playbook (plain English).
 // COMPILE-FIXED: clearPend; const plotshape; global table helpers (CE10156).
 //
 // Core: Pool -> Inducement -> Sweep -> CISD/MSS -> Prem/Disc + OTE -> zone
 // Elite: HTF Draw · HTF POI · AMD · SMT Ag+DXY+ES · IFVG · Unicorn · Gaps · A+
-// v6.1 COMPLETE:
-//   1) Daily bias lock (BUY-only / SELL-only before London)
-//   2) True Judas (Asia sweep against bias → disp+FVG → MSS with bias)
-//   3) Displacement must leave FVG
-//   4) Silver Bullet model (swing sweep → CHoCH/MSS → FVG)
-//   5) TP1 = Asia opposite or -0.27 expansion; TP2 PDH/PDL/draw
-//   6) IPDA 20/40/60 day magnets
-//   7) London close / NY lunch dead-hour filter
-//   8) ES equity SMT
-//   9) One trade per killzone
-//  10) Extra news windows (CPI/NFP/FOMC manual)
+// v6.1 COMPLETE playbook + v6.2 plain-English open/IPDA labels (what to do)
 //
 // USE: OANDA:XAUUSD, 1-minute. HTF non-repainting ([1]+lookahead_on).
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=6
-indicator("Gold Liquidity Sweep PRO v6.1 — Signals",
-     shorttitle = "GOLD LiqSweep PRO v6.1",
+indicator("Gold Liquidity Sweep PRO v6.2 — Signals",
+     shorttitle = "GOLD LiqSweep PRO v6.2",
      overlay = true,
      max_lines_count = 500,
      max_labels_count = 500,
@@ -93,9 +83,9 @@ tp1AsiaOpp = input.bool(true, "TP1 = Asia opposite side", group = grpPlay)
 tp1Fib027 = input.bool(true, "TP1 fallback = -0.27 expansion", group = grpPlay, tooltip = "If Asia opposite not usable: Asia high + 0.272*range (long) / Asia low - 0.272*range (short).")
 oneTradeKZ = input.bool(true, "Max 1 signal per killzone block", group = grpPlay)
 
-grpIPDA = "IPDA Magnets (20 / 40 / 60 day)"
-useIPDA = input.bool(true, "Show & arm IPDA 20/40/60 day H/L", group = grpIPDA, tooltip = "Weekly-style magnets from rolling daily extremes.")
-showIPDA = input.bool(true, "Draw IPDA lines/labels", group = grpIPDA)
+grpIPDA = "Big multi-day highs/lows (20 / 40 / 60 day)"
+useIPDA = input.bool(true, "Show 20/40/60-day highs & lows", group = grpIPDA, tooltip = "Plain English: highest/lowest gold went in the last 20, 40, 60 days. Banks watch these. Near a HIGH → look for fake-up then SELL. Near a LOW → look for fake-down then BUY. Also used as take-profit targets.")
+showIPDA = input.bool(true, "Draw these lines on chart", group = grpIPDA)
 
 grpPure = "Pure Liquidity Edge (direct PA — not EMA)"
 pureLiq = input.bool(true, "Pure Liquidity mode (EMA/Stoch/200MA = score only)", group = grpPure, tooltip = "ON: trade like a liquidity desk — structure, pools, premium/discount, SMT. EMA/Stoch/200MA never veto a setup; they only affect the grade.")
@@ -103,7 +93,7 @@ usePremDisc = input.bool(true, "Premium / Discount filter", group = grpPure, too
 useOTE = input.bool(true, "OTE zone (62–79% of displacement)", group = grpPure, tooltip = "After MSS displacement, entry must land in the 62–79% retrace (ICT Optimal Trade Entry). Sweet spot ~70.5%.")
 useCE = input.bool(true, "Consequent Encroachment (50% of FVG)", group = grpPure, tooltip = "Enter at the mean of the FVG/OB (50%), not the first touch of the zone edge.")
 useBreaker = input.bool(true, "Breaker block at broken swing", group = grpPure, tooltip = "After MSS, the broken swing becomes a breaker shelf for the retest entry.")
-useOpens = input.bool(true, "NY Midnight / Daily / Weekly opens", group = grpPure, tooltip = "Institutional magnets. Drawn and armed as liquidity; also score confluence.")
+useOpens = input.bool(true, "Day / Week / Midnight opens (price magnets)", group = grpPure, tooltip = "Plain English: the price where the day, week, or NY midnight started. Gold often comes back to these lines. Use them as bounce/reject spots or take-profit. Midnight open also sets BUY-day vs SELL-day lean.")
 useNest = input.bool(true, "Internal→External nesting (inducement)", group = grpPure, tooltip = "EQH/EQL = internal. PDH/Asia/Day/Week/Rounds = external. Pros prefer external hunts after internal inducement.")
 requireNest = input.bool(false, "REQUIRE nested inducement before signal", group = grpPure)
 nestBars = input.int(90, "Inducement lookback (bars)", minval = 10, group = grpPure)
@@ -344,7 +334,8 @@ method refresh(LiqLevel L, float newPrice) =>
         string side = L.kind == "high" ? "BSL" : "SSL"
         L.pool := side
         // Keep previous full wording — tidy via pin stagger only
-        string tip = not useSimple ? " [" + side + "]" : L.kind == "high" ? " | fake breakout UP = SELL (BSL swept)" : " | fake breakout DOWN = BUY (SSL swept)"
+        // Plain English action tip on every level
+        string tip = not useSimple ? " [" + side + "]" : L.kind == "high" ? " | fake UP here = SELL" : " | fake DOWN here = BUY"
         string txt = L.name + "  " + str.tostring(newPrice, format.mintick) + tip
         L.ln := line.new(bar_index, newPrice, bar_index + 1, newPrice, extend = extend.right, color = L.col, width = 2)
         L.lb := label.new(bar_index, newPrice, txt, style = label.style_label_right, color = f_lblBg(L.col), textcolor = f_lblTx(L.col), size = size.small)
@@ -401,12 +392,12 @@ var LiqLevel lvlCDH   = LiqLevel.new("Day-H",  "high", useCD,   color.rgb(255, 1
 var LiqLevel lvlCDL   = LiqLevel.new("Day-L",  "low",  useCD,   color.rgb(25, 118, 210))
 var LiqLevel lvlCWH   = LiqLevel.new("Week-H", "high", useCW,   color.rgb(255, 111, 0))
 var LiqLevel lvlCWL   = LiqLevel.new("Week-L", "low",  useCW,   color.rgb(46, 125, 50))
-var LiqLevel lvlIP20H = LiqLevel.new("IPDA20-H", "high", useIPDA, color.rgb(121, 85, 72))
-var LiqLevel lvlIP20L = LiqLevel.new("IPDA20-L", "low",  useIPDA, color.rgb(141, 110, 99))
-var LiqLevel lvlIP40H = LiqLevel.new("IPDA40-H", "high", useIPDA, color.rgb(93, 64, 55))
-var LiqLevel lvlIP40L = LiqLevel.new("IPDA40-L", "low",  useIPDA, color.rgb(109, 76, 65))
-var LiqLevel lvlIP60H = LiqLevel.new("IPDA60-H", "high", useIPDA, color.rgb(62, 39, 35))
-var LiqLevel lvlIP60L = LiqLevel.new("IPDA60-L", "low",  useIPDA, color.rgb(78, 52, 46))
+var LiqLevel lvlIP20H = LiqLevel.new("20-day HIGH", "high", useIPDA, color.rgb(121, 85, 72))
+var LiqLevel lvlIP20L = LiqLevel.new("20-day LOW",  "low",  useIPDA, color.rgb(141, 110, 99))
+var LiqLevel lvlIP40H = LiqLevel.new("40-day HIGH", "high", useIPDA, color.rgb(93, 64, 55))
+var LiqLevel lvlIP40L = LiqLevel.new("40-day LOW",  "low",  useIPDA, color.rgb(109, 76, 65))
+var LiqLevel lvlIP60H = LiqLevel.new("60-day HIGH", "high", useIPDA, color.rgb(62, 39, 35))
+var LiqLevel lvlIP60L = LiqLevel.new("60-day LOW",  "low",  useIPDA, color.rgb(78, 52, 46))
 lvlPDH.tier := "EXT"
 lvlPDL.tier := "EXT"
 lvlPWH.tier := "EXT"
@@ -497,7 +488,7 @@ if newDay
         if not na(dayOpenLb)
             label.delete(dayOpenLb)
         dayOpenLn := line.new(bar_index, dayOpen, bar_index + 1, dayOpen, extend = extend.right, color = color.rgb(191, 128, 64), width = 1, style = line.style_dotted)
-        dayOpenLb := label.new(bar_index, dayOpen, useSimple ? "Day open magnet  " + str.tostring(dayOpen, format.mintick) : "Day-O  " + str.tostring(dayOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(191, 128, 64)), textcolor = f_lblTx(color.rgb(191, 128, 64)), size = size.small)
+        dayOpenLb := label.new(bar_index, dayOpen, useSimple ? "TODAY OPEN " + str.tostring(dayOpen, format.mintick) + " — price often returns here (bounce or reject)" : "Day-O  " + str.tostring(dayOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(191, 128, 64)), textcolor = f_lblTx(color.rgb(191, 128, 64)), size = size.small)
 else
     if na(cdH) or high > cdH
         cdH := high
@@ -524,7 +515,7 @@ if newWeek
         if not na(weekOpenLb)
             label.delete(weekOpenLb)
         weekOpenLn := line.new(bar_index, weekOpen, bar_index + 1, weekOpen, extend = extend.right, color = color.rgb(176, 106, 56), width = 1, style = line.style_dotted)
-        weekOpenLb := label.new(bar_index, weekOpen, useSimple ? "Week open magnet  " + str.tostring(weekOpen, format.mintick) : "Week-O  " + str.tostring(weekOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(176, 106, 56)), textcolor = f_lblTx(color.rgb(176, 106, 56)), size = size.small)
+        weekOpenLb := label.new(bar_index, weekOpen, useSimple ? "WEEK OPEN " + str.tostring(weekOpen, format.mintick) + " — strong magnet (TP or reverse here)" : "Week-O  " + str.tostring(weekOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(176, 106, 56)), textcolor = f_lblTx(color.rgb(176, 106, 56)), size = size.small)
 else
     if na(cwH) or high > cwH
         cwH := high
@@ -542,7 +533,7 @@ if useOpens and newNYMid
     if not na(midOpenLb)
         label.delete(midOpenLb)
     midOpenLn := line.new(bar_index, midOpen, bar_index + 1, midOpen, extend = extend.right, color = color.rgb(255, 152, 0), width = 2, style = line.style_dotted)
-    midOpenLb := label.new(bar_index, midOpen, useSimple ? "NY midnight open  " + str.tostring(midOpen, format.mintick) : "NY-Mid  " + str.tostring(midOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(255, 152, 0)), textcolor = f_lblTx(color.rgb(255, 152, 0)), size = size.small)
+    midOpenLb := label.new(bar_index, midOpen, useSimple ? "MIDNIGHT OPEN " + str.tostring(midOpen, format.mintick) + " — above=SELL day · below=BUY day" : "NY-Mid  " + str.tostring(midOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(255, 152, 0)), textcolor = f_lblTx(color.rgb(255, 152, 0)), size = size.small)
 
 // ── NDOG / NWOG (New Day / New Week Opening Gaps) ──
 var float ndogTop = na
@@ -564,7 +555,7 @@ if useNDOG and newDay
             label.delete(ndogLb)
         if showEliteVis and ndogTop - ndogBot >= syminfo.mintick
             ndogBox := box.new(bar_index, ndogTop, bar_index + 40, ndogBot, border_color = color.rgb(191, 128, 64), bgcolor = color.new(color.rgb(191, 128, 64), 82), text = "NDOG", text_color = color.white)
-            ndogLb := label.new(bar_index + 8, ndogTop, useSimple ? "Day gap magnet" : "NDOG", style = label.style_label_left, color = f_lblBg(color.rgb(191, 128, 64)), textcolor = f_lblTx(color.rgb(191, 128, 64)), size = size.small)
+            ndogLb := label.new(bar_index + 8, ndogTop, useSimple ? "Day gap — price often fills this" : "NDOG", style = label.style_label_left, color = f_lblBg(color.rgb(191, 128, 64)), textcolor = f_lblTx(color.rgb(191, 128, 64)), size = size.small)
 if useNDOG and newWeek
     float pwc = close[1]
     if open != pwc
@@ -576,7 +567,7 @@ if useNDOG and newWeek
             label.delete(nwogLb)
         if showEliteVis and nwogTop - nwogBot >= syminfo.mintick
             nwogBox := box.new(bar_index, nwogTop, bar_index + 80, nwogBot, border_color = color.rgb(176, 106, 56), bgcolor = color.new(color.rgb(176, 106, 56), 82), text = "NWOG", text_color = color.white)
-            nwogLb := label.new(bar_index + 8, nwogTop, useSimple ? "Week gap magnet" : "NWOG", style = label.style_label_left, color = f_lblBg(color.rgb(176, 106, 56)), textcolor = f_lblTx(color.rgb(176, 106, 56)), size = size.small)
+            nwogLb := label.new(bar_index + 8, nwogTop, useSimple ? "Week gap — price often fills this" : "NWOG", style = label.style_label_left, color = f_lblBg(color.rgb(176, 106, 56)), textcolor = f_lblTx(color.rgb(176, 106, 56)), size = size.small)
 nearNDOG = useNDOG and not na(ndogTop) and high >= ndogBot and low <= ndogTop
 nearNWOG = useNDOG and not na(nwogTop) and high >= nwogBot and low <= nwogTop
 
@@ -1806,7 +1797,7 @@ if showTable and barstate.islast
     color pdCol = na(dealEq) ? color.gray : inDiscount ? tblGood : tblBad
     string smtTxt = smtBullRaw ? (useSimple ? "BUY SMT (Ag/DXY/ES)" : "Bull SMT") + (smtEsBull ? " ES" : "") : smtBearRaw ? (useSimple ? "SELL SMT (Ag/DXY/ES)" : "Bear SMT") + (smtEsBear ? " ES" : "") : (useSimple ? "No SMT yet" : "None")
     color smtCol = smtBullRaw ? tblGood : smtBearRaw ? tblBad : color.gray
-    string ipdaTxt = not useIPDA ? "Off" : str.tostring(ipda20H, format.mintick) + "/" + str.tostring(ipda20L, format.mintick) + " | 40 " + str.tostring(ipda40H, format.mintick) + "/" + str.tostring(ipda40L, format.mintick)
+    string ipdaTxt = not useIPDA ? "Off" : useSimple ? ("Near HIGH → SELL fake-up · Near LOW → BUY fake-down · 20D " + str.tostring(ipda20H, format.mintick) + "/" + str.tostring(ipda20L, format.mintick)) : (str.tostring(ipda20H, format.mintick) + "/" + str.tostring(ipda20L, format.mintick) + " | 40 " + str.tostring(ipda40H, format.mintick) + "/" + str.tostring(ipda40L, format.mintick))
     color deadCol = inDeadHrs ? tblBad : tblGood
     string deadTxt = not useDeadHrs ? "Off" : inLonClose ? (useSimple ? "London close — stand aside" : "Lon close") : inNyLunch ? (useSimple ? "NY lunch — stand aside" : "NY lunch") : (useSimple ? "Live hours OK" : "Clear")
     color drawCol = not na(drawBSL) and not na(drawSSL) ? tblKey : not na(drawBSL) ? tblGood : not na(drawSSL) ? tblBad : color.gray
@@ -1949,7 +1940,7 @@ if showTable and barstate.islast
     color sbCol = not sbPlaybook ? color.gray : inSB and (sbLoSwept or sbHiSwept) ? tblGood : inSB ? color.orange : tblMute
 
     // ═══════════ LAYOUT (read top → bottom) ═══════════
-    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.1", text_color = color.white, bgcolor = color.navy, text_size = size.small)
+    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.2", text_color = color.white, bgcolor = color.navy, text_size = size.small)
     table.cell(t, 1, 0, hdrStatus, text_color = color.white, bgcolor = hdrBg, text_size = size.small)
 
     f_tblSec(t, 1, useSimple ? "1) GATE - can I trade now?" : "1) GATE")
@@ -1965,7 +1956,7 @@ if showTable and barstate.islast
 
     f_tblSec(t, 10, useSimple ? "3) LIQUIDITY - where are the pools?" : "3) LIQUIDITY")
     f_tblRow(t, 11, useSimple ? "Draw on liquidity" : "Draw", drawTxt, tblMute, drawCol)
-    f_tblRow(t, 12, useSimple ? "IPDA 20/40 magnets" : "IPDA", ipdaTxt, tblMute, useIPDA ? tblKey : color.gray)
+    f_tblRow(t, 12, useSimple ? "Big 20/40 day H/L" : "IPDA", ipdaTxt, tblMute, useIPDA ? tblKey : color.gray)
     f_tblRow(t, 13, useSimple ? "Yesterday H / L" : "PDH/PDL", ydayTxt, tblMute, tblKey)
     f_tblRow(t, 14, useSimple ? "Today / Week H/L" : "Day/Week", dayLiveTxt + " | " + weekLiveTxt, tblMute, tblKey)
 
@@ -1987,7 +1978,7 @@ if showTable and barstate.islast
     f_tblRow(t, 27, useSimple ? "Ideas today / pts" : "Signals/pts", str.tostring(signalsToday) + " / " + str.tostring(maxSigDay) + " | pts " + str.tostring(buyPts, "#") + "/" + str.tostring(sellPts, "#") + " | " + gradeL + "/" + gradeS, tblMute, tblKey)
     f_tblRow(t, 28, useSimple ? "Last trade idea" : "Last signal", lastTxt, tblMute, tblKey)
     table.cell(t, 0, 29, useSimple ? "Entry mode" : "Mode", text_color = tblMute, text_size = size.tiny)
-    table.cell(t, 1, 29, entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.1", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
+    table.cell(t, 1, 29, entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.2", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 30, useSimple ? "Edges ON" : "Edges", text_color = tblMute, text_size = size.tiny)
     table.cell(t, 1, 30, (useDailyBias ? "DayBias " : "") + (useJudasWin ? "Judas " : "") + (useDispGate ? "DispFVG " : "") + (sbPlaybook ? "SB " : "") + (useIPDA ? "IPDA " : "") + (useSmtES ? "ES " : "") + (useDeadHrs ? "DeadHrs " : "") + (useHTFDraw ? "Draw " : "") + (useAMD ? "AMD " : "") + (aPlusMode ? "A+" : ""), text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 31, useSimple ? "Research order" : "Flow", text_color = tblMute, text_size = size.tiny)
