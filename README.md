@@ -1,38 +1,29 @@
-# GoldPine — Gold Liquidity Sweep PRO v6.1
+# GoldPine — Gold Liquidity Sweep PRO v6.3.1
 
-Institutional **liquidity / price-action** signal indicator for XAUUSD (TradingView Pine v6).
+Liquidity / price-action signal indicator for **OANDA:XAUUSD** (TradingView Pine v6).
 
-**v6.1 = complete daily playbook** (all 10 checklist edges).
+## Paste into TradingView (use this file)
 
-## Sequence
+https://raw.githubusercontent.com/rajesh-sha/GoldPine/cursor/gold-liq-sweep-pro-v3-09e0/GOLD_v6.3.1_PASTE_THIS.txt
 
-**Daily bias lock → Judas / SB path → Sweep → CISD/MSS → Disp+FVG → Prem/Disc + OTE → CE/OB → Asia or -0.27 TP1 → PDH/PDL/draw TP2**
+1. Open the link → Select all → Copy  
+2. Pine Editor → delete old code → Paste → **Save**  
+3. Remove old indicator from chart → **Add to chart** again  
+4. Confirm title shows **v6.3.1** (not v6.3)
 
-| # | Edge | Status |
-|---|------|--------|
-| 1 | Daily bias narrative (lock BUY/SELL before London) | Done |
-| 2 | True Judas (Asia against bias → disp+FVG → MSS with bias) | Done |
-| 3 | Displacement + FVG gate | Done |
-| 4 | Silver Bullet model (swing sweep → MSS → FVG) | Done |
-| 5 | TP1 Asia opposite / -0.27 expansion | Done |
-| 6 | IPDA 20/40/60 day magnets | Done |
-| 7 | London close / NY lunch dead hours | Done |
-| 8 | SMT Gold vs Ag + DXY + **ES** | Done |
-| 9 | One trade per killzone | Done |
-| 10 | News windows (CPI/NFP/FOMC manual) | Done |
-
-## Files
-
-- `Gold Liquidity Sweep PRO.txt` — paste into TradingView
-- `indicators/Gold_Liquidity_Sweep_PRO_v3_Signals.pine` — same script
+If the table still says `Big 20/40 day highs/lows` or `Near HIGH → SELL`, you are still on the old saved script.
 
 ## Chart setup
 
-1. `OANDA:XAUUSD` on **1 minute**
-2. Paste full file → Add to chart
-3. Confirm title **v6.1**
-4. Entry Style = `MSS + FVG/OB (PRO)`
-5. Tune **Daily Playbook (v6.1)** + news windows to your CPI/NFP/FOMC times
+1. Symbol: `OANDA:XAUUSD`  
+2. Timeframe: **1 minute**  
+3. Beginner mode: **ON**
+
+## Files
+
+- `GOLD_v6.3.1_PASTE_THIS.txt` — use this paste  
+- `Gold Liquidity Sweep PRO.txt` — same script  
+- `indicators/Gold_Liquidity_Sweep_PRO_v3_Signals.pine` — same script  
 
 ## Disclaimer
 
