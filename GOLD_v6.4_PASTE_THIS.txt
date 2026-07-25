@@ -1,13 +1,13 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Gold Liquidity Sweep PRO v6.5 — FINAL PLAIN ENGLISH [Rajesh Sha]
-// No jargon on chart/table. Opens + TP labels = plain cash-out / day-start English.
+// Gold Liquidity Sweep PRO v6.5.1 — FINAL PLAIN ENGLISH [Rajesh Sha]
+// Anti-overlap: merge cash-out into open label when same price; pin remaining labels.
 // COMPILE-FIXED: clearPend; const plotshape; global table helpers (CE10156).
 //
 // USE: OANDA:XAUUSD, 1-minute. HTF non-repainting ([1]+lookahead_on).
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=6
-indicator("Gold Liquidity Sweep PRO v6.5 — Signals",
-     shorttitle = "GOLD LiqSweep PRO v6.5",
+indicator("Gold Liquidity Sweep PRO v6.5.1 — Signals",
+     shorttitle = "GOLD LiqSweep PRO v6.5.1.1",
      overlay = true,
      max_lines_count = 500,
      max_labels_count = 500,
@@ -1659,6 +1659,72 @@ if showStochLines
     if k15 >= stochOB and not (k15[1] >= stochOB)
         label.new(bar_index, high + stOff * 1.8, useSimple ? "Buyers tired 15m (SELL side ready)" : "15m OB", style = label.style_label_lower_right, color = f_lblBg(color.yellow), textcolor = color.black, size = size.tiny)
 
+// ═══════════════════════════ CASH-OUT LINES (merge with opens if same price) ═══════════════════════════
+var line drawUpLn = na
+var line drawDnLn = na
+var label drawUpLb = na
+var label drawDnLb = na
+var bool drawUpMerged = false
+var bool drawDnMerged = false
+
+f_nearPx(float a, float b) =>
+    not na(a) and not na(b) and math.abs(a - b) <= atrVal * collideTolATR
+
+if showEliteVis and barstate.islast
+    if not na(drawUpLn)
+        line.delete(drawUpLn)
+    if not na(drawDnLn)
+        line.delete(drawDnLn)
+    if not na(drawUpLb)
+        label.delete(drawUpLb)
+    if not na(drawDnLb)
+        label.delete(drawDnLb)
+    drawUpLn := na
+    drawDnLn := na
+    drawUpLb := na
+    drawDnLb := na
+    drawUpMerged := false
+    drawDnMerged := false
+
+    // Refresh open label base text, then append cash-out if levels overlap (one label, not two)
+    if useOpens and not na(dayOpenLb) and not na(dayOpen)
+        string dayBase = useSimple ? "TODAY OPEN " + str.tostring(dayOpen, format.mintick) + (na(dayOpenTime) ? "" : " · " + str.format_time(dayOpenTime, "dd MMM", sigTZ)) + " — day started here · price often returns · cash-out level (not entry)" : "Day-O  " + str.tostring(dayOpen, format.mintick)
+        bool dayBuy = useHTFDraw and f_nearPx(drawBSL, dayOpen)
+        bool daySell = useHTFDraw and f_nearPx(drawSSL, dayOpen)
+        if dayBuy
+            drawUpMerged := true
+        if daySell
+            drawDnMerged := true
+        label.set_text(dayOpenLb, dayBase + (dayBuy ? (useSimple ? " · ALSO BUY cash-out here" : " · BSL") : "") + (daySell ? (useSimple ? " · ALSO SELL cash-out here" : " · SSL") : ""))
+    if useOpens and not na(weekOpenLb) and not na(weekOpen)
+        string weekBase = useSimple ? "WEEK OPEN " + str.tostring(weekOpen, format.mintick) + (na(weekOpenTime) ? "" : " · " + str.format_time(weekOpenTime, "dd MMM", sigTZ)) + " — week started here · price often returns · cash-out level (not entry)" : "Week-O  " + str.tostring(weekOpen, format.mintick)
+        bool weekBuy = useHTFDraw and f_nearPx(drawBSL, weekOpen)
+        bool weekSell = useHTFDraw and f_nearPx(drawSSL, weekOpen)
+        if weekBuy
+            drawUpMerged := true
+        if weekSell
+            drawDnMerged := true
+        label.set_text(weekOpenLb, weekBase + (weekBuy ? (useSimple ? " · ALSO BUY cash-out here" : " · BSL") : "") + (weekSell ? (useSimple ? " · ALSO SELL cash-out here" : " · SSL") : ""))
+    if useOpens and not na(midOpenLb) and not na(midOpen)
+        string midBase = useSimple ? "NY MIDNIGHT OPEN " + str.tostring(midOpen, format.mintick) + (na(midOpenTime) ? "" : " · " + str.format_time(midOpenTime, "dd MMM yyyy", TZ_NY)) + " — above this = SELL day · below this = BUY day" : "NY-Mid  " + str.tostring(midOpen, format.mintick)
+        bool midBuy = useHTFDraw and f_nearPx(drawBSL, midOpen)
+        bool midSell = useHTFDraw and f_nearPx(drawSSL, midOpen)
+        if midBuy
+            drawUpMerged := true
+        if midSell
+            drawDnMerged := true
+        label.set_text(midOpenLb, midBase + (midBuy ? (useSimple ? " · ALSO BUY cash-out here" : " · BSL") : "") + (midSell ? (useSimple ? " · ALSO SELL cash-out here" : " · SSL") : ""))
+
+    // Always keep the dashed cash-out line; only skip EXTRA label when merged into an open
+    if useHTFDraw and not na(drawBSL)
+        drawUpLn := line.new(bar_index - 5, drawBSL, bar_index + 25, drawBSL, color = color.new(color.red, 40), width = 2, style = line.style_dashed)
+        if not drawUpMerged
+            drawUpLb := label.new(bar_index + 26, drawBSL, useSimple ? "BUY cash-out ↑ " + str.tostring(drawBSL, format.mintick) + " (not entry)" : "DRAW BSL " + str.tostring(drawBSL, format.mintick), style = label.style_label_left, color = f_lblBg(color.red), textcolor = f_lblTx(color.red), size = size.tiny)
+    if useHTFDraw and not na(drawSSL)
+        drawDnLn := line.new(bar_index - 5, drawSSL, bar_index + 25, drawSSL, color = color.new(color.green, 40), width = 2, style = line.style_dashed)
+        if not drawDnMerged
+            drawDnLb := label.new(bar_index + 26, drawSSL, useSimple ? "SELL cash-out ↓ " + str.tostring(drawSSL, format.mintick) + " (not entry)" : "DRAW SSL " + str.tostring(drawSSL, format.mintick), style = label.style_label_left, color = f_lblBg(color.green), textcolor = f_lblTx(color.green), size = size.tiny)
+
 // ═══════════════════════════ SMART LABEL PINNING (anti-overlap UX) ═══════════════════════════
 // Sort-free cluster bump: each new label near an existing one gets a higher
 // horizontal stagger + small vertical ATR nudge so text never stacks.
@@ -1734,6 +1800,15 @@ if pinLabels and barstate.islast
             array.push(allLbs, midOpenLb)
             array.push(allLns, midOpenLn)
             array.push(allYs, midOpen)
+    // Cash-out labels (only if not merged into an open) — pin with the rest
+    if not na(drawUpLb) and not na(drawBSL)
+        array.push(allLbs, drawUpLb)
+        array.push(allLns, drawUpLn)
+        array.push(allYs, drawBSL)
+    if not na(drawDnLb) and not na(drawSSL)
+        array.push(allLbs, drawDnLb)
+        array.push(allLns, drawDnLn)
+        array.push(allYs, drawSSL)
     // Bubble-sort by price so nearby levels get sequential stagger steps
     int n = array.size(allYs)
     if n > 1
@@ -1978,7 +2053,7 @@ if showTable and barstate.islast
     color midMonCol = not useOpens or na(midOpen) ? color.gray : close < midOpen ? tblGood : close > midOpen ? tblBad : color.orange
 
     // ═══════════ LAYOUT (read top → bottom) ═══════════
-    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.5", text_color = color.white, bgcolor = color.navy, text_size = size.small)
+    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.5.1", text_color = color.white, bgcolor = color.navy, text_size = size.small)
     table.cell(t, 1, 0, hdrStatus, text_color = color.white, bgcolor = hdrBg, text_size = size.small)
 
     f_tblSec(t, 1, useSimple ? "1) GATE - can I trade now?" : "1) GATE")
@@ -2019,32 +2094,12 @@ if showTable and barstate.islast
     f_tblRow(t, 29, useSimple ? "Research edge (desk)" : "Edge", edgeTxt, tblMute, edgeCol)
     f_tblRow(t, 30, useSimple ? "Ideas today / last" : "Signals", str.tostring(signalsToday) + " / " + str.tostring(maxSigDay) + " · " + (lastTag == "" ? (useSimple ? "no idea yet" : "-") : lastTag), tblMute, tblKey)
     table.cell(t, 0, 31, useSimple ? "How entries work" : "Mode", text_color = tblMute, text_size = size.tiny)
-    table.cell(t, 1, 31, useSimple ? "Research → wait gate → sweep → flip → pullback | v6.5" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.5", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
+    table.cell(t, 1, 31, useSimple ? "Research → wait gate → sweep → flip → pullback | v6.5.1" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.5.1", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 32, useSimple ? "Tools ON" : "Edges", text_color = tblMute, text_size = size.tiny)
     table.cell(t, 1, 32, useSimple ? ((useDailyBias ? "DaySide " : "") + (useJudasWin ? "FakeMove " : "") + (useDispGate ? "StrongPush " : "") + (sbPlaybook ? "BestHour " : "") + (useIPDA ? "20/40Day " : "") + (useSmtES ? "Stocks " : "") + (useDeadHrs ? "SlowHrs " : "") + (useHTFDraw ? "TP-lines " : "") + (useAMD ? "DayStory " : "") + (aPlusMode ? "TopOnly" : "")) : ((useDailyBias ? "DayBias " : "") + (useJudasWin ? "Judas " : "") + (useDispGate ? "DispFVG " : "") + (sbPlaybook ? "SB " : "") + (useIPDA ? "IPDA " : "") + (useSmtES ? "ES " : "") + (useDeadHrs ? "DeadHrs " : "") + (useHTFDraw ? "Draw " : "") + (useAMD ? "AMD " : "") + (aPlusMode ? "A+" : "")), text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 33, useSimple ? "Desk rule" : "Flow", text_color = tblMute, text_size = size.tiny)
     table.cell(t, 1, 33, useSimple ? "Gate kills chase · Bias picks side · Confirm before entry · Edge A/A+ only vs 4H" : "G->B->L->C->D", text_color = color.gray, text_size = size.tiny)
 
-// Elite visuals: draw rails + AMD tint
-var line drawUpLn = na
-var line drawDnLn = na
-var label drawUpLb = na
-var label drawDnLb = na
-if showEliteVis and barstate.islast
-    if not na(drawUpLn)
-        line.delete(drawUpLn)
-    if not na(drawDnLn)
-        line.delete(drawDnLn)
-    if not na(drawUpLb)
-        label.delete(drawUpLb)
-    if not na(drawDnLb)
-        label.delete(drawDnLb)
-    if useHTFDraw and not na(drawBSL)
-        drawUpLn := line.new(bar_index - 5, drawBSL, bar_index + 25, drawBSL, color = color.new(color.red, 40), width = 2, style = line.style_dashed)
-        drawUpLb := label.new(bar_index + 26, drawBSL, useSimple ? "BUY cash-out ↑ " + str.tostring(drawBSL, format.mintick) + " (close BUY here — not an entry)" : "DRAW BSL " + str.tostring(drawBSL, format.mintick), style = label.style_label_left, color = f_lblBg(color.red), textcolor = f_lblTx(color.red), size = size.tiny)
-    if useHTFDraw and not na(drawSSL)
-        drawDnLn := line.new(bar_index - 5, drawSSL, bar_index + 25, drawSSL, color = color.new(color.green, 40), width = 2, style = line.style_dashed)
-        drawDnLb := label.new(bar_index + 26, drawSSL, useSimple ? "SELL cash-out ↓ " + str.tostring(drawSSL, format.mintick) + " (close SELL here — not an entry)" : "DRAW SSL " + str.tostring(drawSSL, format.mintick), style = label.style_label_left, color = f_lblBg(color.green), textcolor = f_lblTx(color.green), size = size.tiny)
 bgcolor(showEliteVis and useAMD and amdPhase == "ACC" ? color.new(color.blue, 96) : showEliteVis and useAMD and amdPhase == "MAN" ? color.new(color.orange, 94) : showEliteVis and useAMD and amdPhase == "DIST" ? color.new(color.green, 96) : na, title = "AMD phase")
 
 // ═══════════════════════════ ALERTS ═══════════════════════════
