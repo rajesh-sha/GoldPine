@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Gold Liquidity Sweep PRO v6.3 — FULL PLAIN ENGLISH [Rajesh Sha]
-// v3.2 look + v5 elite edges + full v6 playbook. Beginner mode = normal English only.
+// Gold Liquidity Sweep PRO v6.3.1 — FULL PLAIN ENGLISH [Rajesh Sha]
+// Fix: 20-day high/low row now says High=SELL / Low=BUY in plain English.
 // COMPILE-FIXED: clearPend; const plotshape; global table helpers (CE10156).
 //
 // USE: OANDA:XAUUSD, 1-minute. HTF non-repainting ([1]+lookahead_on).
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=6
-indicator("Gold Liquidity Sweep PRO v6.3 — Signals",
+indicator("Gold Liquidity Sweep PRO v6.3.1 — Signals",
      shorttitle = "GOLD LiqSweep PRO v6.3",
      overlay = true,
      max_lines_count = 500,
@@ -1795,7 +1795,10 @@ if showTable and barstate.islast
     color pdCol = na(dealEq) ? color.gray : inDiscount ? tblGood : tblBad
     string smtTxt = smtBullRaw ? (useSimple ? "Other markets agree BUY" : "Bull SMT") + (smtEsBull ? " (stocks)" : "") : smtBearRaw ? (useSimple ? "Other markets agree SELL" : "Bear SMT") + (smtEsBear ? " (stocks)" : "") : (useSimple ? "No market agreement yet" : "None")
     color smtCol = smtBullRaw ? tblGood : smtBearRaw ? tblBad : color.gray
-    string ipdaTxt = not useIPDA ? "Off" : useSimple ? ("Near HIGH → SELL · Near LOW → BUY · 20d " + str.tostring(ipda20H, format.mintick) + "/" + str.tostring(ipda20L, format.mintick)) : (str.tostring(ipda20H, format.mintick) + "/" + str.tostring(ipda20L, format.mintick) + " | 40 " + str.tostring(ipda40H, format.mintick) + "/" + str.tostring(ipda40L, format.mintick))
+    // Plain English: these are the highest/lowest prices of the last 20 trading days
+    bool nearIpdaHi = useIPDA and not na(ipda20H) and math.abs(close - ipda20H) <= 2.0 * atrVal
+    bool nearIpdaLo = useIPDA and not na(ipda20L) and math.abs(close - ipda20L) <= 2.0 * atrVal
+    string ipdaTxt = not useIPDA ? "Off" : useSimple ? ("High " + str.tostring(ipda20H, format.mintick) + " = look SELL if tagged · Low " + str.tostring(ipda20L, format.mintick) + " = look BUY if tagged" + (nearIpdaHi ? " · NOW near the high" : "") + (nearIpdaLo ? " · NOW near the low" : "")) : (str.tostring(ipda20H, format.mintick) + "/" + str.tostring(ipda20L, format.mintick) + " | 40 " + str.tostring(ipda40H, format.mintick) + "/" + str.tostring(ipda40L, format.mintick))
     color deadCol = inDeadHrs ? tblBad : tblGood
     string deadTxt = not useDeadHrs ? "Off" : inLonClose ? (useSimple ? "London close — stand aside" : "Lon close") : inNyLunch ? (useSimple ? "Lunch chop — stand aside" : "NY lunch") : (useSimple ? "Hours OK" : "Clear")
     color drawCol = not na(drawBSL) and not na(drawSSL) ? tblKey : not na(drawBSL) ? tblGood : not na(drawSSL) ? tblBad : color.gray
@@ -1938,7 +1941,7 @@ if showTable and barstate.islast
     color sbCol = not sbPlaybook ? color.gray : inSB and (sbLoSwept or sbHiSwept) ? tblGood : inSB ? color.orange : tblMute
 
     // ═══════════ LAYOUT (read top → bottom) ═══════════
-    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.3", text_color = color.white, bgcolor = color.navy, text_size = size.small)
+    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.3.1", text_color = color.white, bgcolor = color.navy, text_size = size.small)
     table.cell(t, 1, 0, hdrStatus, text_color = color.white, bgcolor = hdrBg, text_size = size.small)
 
     f_tblSec(t, 1, useSimple ? "1) GATE - can I trade now?" : "1) GATE")
@@ -1954,7 +1957,7 @@ if showTable and barstate.islast
 
     f_tblSec(t, 10, useSimple ? "3) LEVELS - where can price go?" : "3) LIQUIDITY")
     f_tblRow(t, 11, useSimple ? "Take-profit targets" : "Draw", drawTxt, tblMute, drawCol)
-    f_tblRow(t, 12, useSimple ? "Big 20/40 day highs/lows" : "IPDA", ipdaTxt, tblMute, useIPDA ? tblKey : color.gray)
+    f_tblRow(t, 12, useSimple ? "20-day high & low" : "IPDA", ipdaTxt, tblMute, nearIpdaHi ? tblBad : nearIpdaLo ? tblGood : (useIPDA ? tblKey : color.gray))
     f_tblRow(t, 13, useSimple ? "Yesterday high / low" : "PDH/PDL", ydayTxt, tblMute, tblKey)
     f_tblRow(t, 14, useSimple ? "Today / week high-low" : "Day/Week", dayLiveTxt + " | " + weekLiveTxt, tblMute, tblKey)
 
