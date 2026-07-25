@@ -1,6 +1,8 @@
-# GoldPine — Gold Liquidity Sweep PRO v4
+# GoldPine — Gold Liquidity Sweep PRO v4.4
 
 Institutional **liquidity / price-action** signal indicator for XAUUSD (TradingView Pine v6).
+
+v4.4 keeps every v3.2 label + StochRSI rail — only tidier spacing and clearer pastel colors.
 
 ## What desks actually trade (not EMA noise)
 
