@@ -1,15 +1,15 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Gold Liquidity Sweep PRO v6.7.9 — PLAIN OPEN LABELS [Rajesh Sha]
+// Gold Liquidity Sweep PRO v6.8.1 — EXCHANGE BELLS [Rajesh Sha]
 // TIMEZONE POLICY:
-//   TRADE CLOCK = America/New_York  (killzones, news, dead hours, day/week opens, bias day)
+//   TRADE CLOCK = America/New_York  (killzones, news, dead hours, day/week opens, bias day, exchange bells)
 //   DISPLAY CLOCK = sigTZ (default Australia/Melbourne) for table/labels only
-// Smart labels: merge same-price opens; short RND tips; Melb+NY in table.
-//
+// v6.8.1: London cash open/close + NYSE close as multi-exchange price magnets.
+//   Lon close 11:30 NY ≈ 01:30 Melb · Lon open 03:00 NY ≈ 17:00 Melb · NYSE close 16:00 NY ≈ 06:00 Melb
 // USE: OANDA:XAUUSD, 1-minute. HTF non-repainting ([1]+lookahead_on).
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=6
-indicator("Gold Liquidity Sweep PRO v6.7.9 — Signals",
-     shorttitle = "GOLD LiqSweep PRO v6.7.9",
+indicator("Gold Liquidity Sweep PRO v6.8.1 — Signals",
+     shorttitle = "GOLD LiqSweep PRO v6.8.1",
      overlay = true,
      max_lines_count = 500,
      max_labels_count = 500,
@@ -92,6 +92,14 @@ useOTE = input.bool(true, "OTE zone (62–79% of displacement)", group = grpPure
 useCE = input.bool(true, "Consequent Encroachment (50% of FVG)", group = grpPure, tooltip = "Enter at the mean of the FVG/OB (50%), not the first touch of the zone edge.")
 useBreaker = input.bool(true, "Breaker block at broken swing", group = grpPure, tooltip = "After MSS, the broken swing becomes a breaker shelf for the retest entry.")
 useOpens = input.bool(true, "Day / Week / Midnight opens (price magnets)", group = grpPure, tooltip = "Plain English: the price where the day, week, or NY midnight started. Gold often comes back to these lines. Use them as bounce/reject spots or take-profit. Midnight open also sets BUY-day vs SELL-day lean.")
+
+grpBell = "Exchange Bells (multi-market magnets)"
+useXBells = input.bool(true, "Use exchange open/close prices as magnets", group = grpBell, tooltip = "When several big exchanges open or close together, gold often leaves a sticky price. Timed on NY trade clock; Melb tip in labels.")
+useLonEqOpen = input.bool(true, "London cash OPEN (03:00 NY ≈ 17:00 Melb)", group = grpBell, tooltip = "LSE/Europe open + Asia cash close cluster.")
+useLonEqClose = input.bool(true, "London cash CLOSE (11:30 NY ≈ 01:30 Melb)", group = grpBell, tooltip = "LSE close / end of London–NY equity overlap — your 1:30am Melb London close.")
+useNyseClose = input.bool(true, "NYSE/NASDAQ CLOSE (16:00 NY ≈ 06:00 Melb)", group = grpBell, tooltip = "US equity cash close.")
+showBellMarks = input.bool(true, "Mark bells on chart (top labels)", group = grpBell)
+
 useNest = input.bool(true, "Internal→External nesting (inducement)", group = grpPure, tooltip = "EQH/EQL = internal. PDH/Asia/Day/Week/Rounds = external. Pros prefer external hunts after internal inducement.")
 requireNest = input.bool(false, "REQUIRE nested inducement before signal", group = grpPure)
 nestBars = input.int(90, "Inducement lookback (bars)", minval = 10, group = grpPure)
@@ -458,6 +466,20 @@ var label dayOpenLb = na
 var label weekOpenLb = na
 var label midOpenLb = na
 
+// Exchange bells — multi-market open/close prints (magnets)
+var float lonOpenPx = na
+var float lonClosePx = na
+var float nyseClosePx = na
+var int lonOpenTime = na
+var int lonCloseTime = na
+var int nyseCloseTime = na
+var line lonOpenLn = na
+var line lonCloseLn = na
+var line nyseCloseLn = na
+var label lonOpenLb = na
+var label lonCloseLb = na
+var label nyseCloseLb = na
+
 // ── LIVE current-Day / Week / Month extremes ──
 var float cdH = na
 var float cdL = na
@@ -564,6 +586,40 @@ if useOpens and newNYMid
         label.delete(midOpenLb)
     midOpenLn := line.new(bar_index, midOpen, bar_index + 1, midOpen, extend = extend.right, color = color.rgb(255, 152, 0), width = 2, style = line.style_dotted)
     midOpenLb := label.new(bar_index, midOpen, useSimple ? "NY OPEN " + str.tostring(midOpen, format.mintick) + " · comes back here" : "NY-Mid  " + str.tostring(midOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(255, 152, 0)), textcolor = f_lblTx(color.rgb(255, 152, 0)), size = size.small)
+
+// ── Exchange bells (NY clock; Melb tips on labels) ──
+// Lon open 03:00 NY ≈ 17:00 Melb · Lon close 11:30 NY ≈ 01:30 Melb · NYSE close 16:00 NY ≈ 06:00 Melb
+bool bellLonOpen = useXBells and useLonEqOpen and hour(time, TZ_NY) == 3 and minute(time, TZ_NY) == 0
+bool bellLonClose = useXBells and useLonEqClose and hour(time, TZ_NY) == 11 and minute(time, TZ_NY) == 30
+bool bellNyseClose = useXBells and useNyseClose and hour(time, TZ_NY) == 16 and minute(time, TZ_NY) == 0
+
+if bellLonOpen
+    lonOpenPx := open
+    lonOpenTime := time
+    if not na(lonOpenLn)
+        line.delete(lonOpenLn)
+    if not na(lonOpenLb)
+        label.delete(lonOpenLb)
+    lonOpenLn := line.new(bar_index, lonOpenPx, bar_index + 1, lonOpenPx, extend = extend.right, color = color.rgb(30, 136, 229), width = 1, style = line.style_dashed)
+    lonOpenLb := label.new(bar_index, lonOpenPx, useSimple ? "LON OPEN " + str.tostring(lonOpenPx, format.mintick) + " · Europe+Asia roll · comes back here" : "LonEq-O " + str.tostring(lonOpenPx, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(30, 136, 229)), textcolor = f_lblTx(color.rgb(30, 136, 229)), size = size.small)
+if bellLonClose
+    lonClosePx := open
+    lonCloseTime := time
+    if not na(lonCloseLn)
+        line.delete(lonCloseLn)
+    if not na(lonCloseLb)
+        label.delete(lonCloseLb)
+    lonCloseLn := line.new(bar_index, lonClosePx, bar_index + 1, lonClosePx, extend = extend.right, color = color.rgb(25, 118, 210), width = 1, style = line.style_dashed)
+    lonCloseLb := label.new(bar_index, lonClosePx, useSimple ? "LON CLOSE " + str.tostring(lonClosePx, format.mintick) + " · 01:30 Melb · comes back here" : "LonEq-C " + str.tostring(lonClosePx, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(25, 118, 210)), textcolor = f_lblTx(color.rgb(25, 118, 210)), size = size.small)
+if bellNyseClose
+    nyseClosePx := open
+    nyseCloseTime := time
+    if not na(nyseCloseLn)
+        line.delete(nyseCloseLn)
+    if not na(nyseCloseLb)
+        label.delete(nyseCloseLb)
+    nyseCloseLn := line.new(bar_index, nyseClosePx, bar_index + 1, nyseClosePx, extend = extend.right, color = color.rgb(123, 31, 162), width = 1, style = line.style_dashed)
+    nyseCloseLb := label.new(bar_index, nyseClosePx, useSimple ? "NYSE CLOSE " + str.tostring(nyseClosePx, format.mintick) + " · US cash end · comes back here" : "NYSE-C " + str.tostring(nyseClosePx, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(123, 31, 162)), textcolor = f_lblTx(color.rgb(123, 31, 162)), size = size.small)
 
 // ── NDOG / NWOG (New Day / New Week Opening Gaps) ──
 var float ndogTop = na
@@ -858,6 +914,7 @@ smtShortOK = (not useSMT and not useSmtDXY and not useSmtES) or not requireSMT o
 
 // Near institutional open confluence
 nearOpen = useOpens and ((not na(dayOpen) and math.abs(close - dayOpen) <= atrVal) or (not na(weekOpen) and math.abs(close - weekOpen) <= atrVal) or (not na(midOpen) and math.abs(close - midOpen) <= atrVal))
+nearBell = useXBells and ((not na(lonOpenPx) and math.abs(close - lonOpenPx) <= atrVal) or (not na(lonClosePx) and math.abs(close - lonClosePx) <= atrVal) or (not na(nyseClosePx) and math.abs(close - nyseClosePx) <= atrVal))
 
 // ═══════════════════════════ ELITE EDGE PACK (v5) ═══════════════════════════
 // HTF Draw on Liquidity — nearest untapped external pool in each direction
@@ -1071,6 +1128,9 @@ string dayDateTxt = na(dayOpenTime) ? (useSimple ? "no date yet" : "-") : (str.f
 string weekDateTxt = na(weekOpenTime) ? (useSimple ? "no date yet" : "-") : (str.format_time(weekOpenTime, "dd MMM yyyy", TZ_NY) + " NY · " + str.format_time(weekOpenTime, "dd MMM HH:mm", sigTZ) + " Melb")
 string dayMonitorTxt = not useOpens ? "Off" : na(dayOpen) ? (useSimple ? "Waiting for NY day open" : "n/a") : (str.tostring(dayOpen, format.mintick) + " · " + dayDateTxt + (close < dayOpen ? (useSimple ? " · below · BUY can cash out here" : " · below") : close > dayOpen ? (useSimple ? " · above · SELL can cash out here" : " · above") : (useSimple ? " · at open" : " · at")))
 string weekMonitorTxt = not useOpens ? "Off" : na(weekOpen) ? (useSimple ? "Waiting for NY week open" : "n/a") : (str.tostring(weekOpen, format.mintick) + " · " + weekDateTxt + (close < weekOpen ? (useSimple ? " · below" : " · below") : close > weekOpen ? (useSimple ? " · above" : " · above") : (useSimple ? " · at open" : " · at")))
+string lonOpenMon = not useXBells or not useLonEqOpen ? "Off" : na(lonOpenPx) ? (useSimple ? "Waiting Lon cash open 03:00 NY / ~17:00 Melb" : "n/a") : (str.tostring(lonOpenPx, format.mintick) + " · " + str.format_time(lonOpenTime, "dd MMM HH:mm", TZ_NY) + " NY / " + str.format_time(lonOpenTime, "HH:mm", sigTZ) + " Melb")
+string lonCloseMon = not useXBells or not useLonEqClose ? "Off" : na(lonClosePx) ? (useSimple ? "Waiting Lon cash close 11:30 NY / ~01:30 Melb" : "n/a") : (str.tostring(lonClosePx, format.mintick) + " · " + str.format_time(lonCloseTime, "dd MMM HH:mm", TZ_NY) + " NY / " + str.format_time(lonCloseTime, "HH:mm", sigTZ) + " Melb")
+string nyseCloseMon = not useXBells or not useNyseClose ? "Off" : na(nyseClosePx) ? (useSimple ? "Waiting NYSE close 16:00 NY / ~06:00 Melb" : "n/a") : (str.tostring(nyseClosePx, format.mintick) + " · " + str.format_time(nyseCloseTime, "dd MMM HH:mm", TZ_NY) + " NY / " + str.format_time(nyseCloseTime, "HH:mm", sigTZ) + " Melb")
 
 // 2) True Judas: Asia sweep AGAINST bias in window, then trade WITH bias after MSS (PRO)
 inJudasWin = useJudasWin and not na(time(timeframe.period, judasWin, TZ_NY))
@@ -1161,8 +1221,8 @@ rangeUsed = adrD > 0 ? (cdH - cdL) / adrD : 0.0
 adrSpent  = useADR and rangeUsed >= adrCap
 
 // Confluence score — after playbook + filters so daily/Judas/SB can boost
-scoreL = (inLondon or inNY or inSB ? 1 : 0) + (extQualityL ? 1 : 0) + (nestedLong ? 1 : 0) + (premDiscLongOK ? 1 : 0) + (smtBullRaw ? 2 : 0) + (qualityBull ? 1 : 0) + (useSessHier and hierLong ? 1 : 0) + (nearOpen or nearNDOG or nearNWOG ? 1 : 0) + (adrSpent ? 1 : 0) + (biasUp4h ? 1 : 0) + (useStoch and stochLongRaw ? 1 : 0) + (not na(drawBSL) ? 1 : 0) + (inHtfBullPOI ? 1 : 0) + (inBullIFVG ? 1 : 0) + (nearBPR ? 1 : 0) + (amdPhase == "DIST" ? 1 : 0) + (timeConf and useTimeConf ? 1 : 0) + (dailyBuyLean ? 2 : 0) + (judasBuyPath ? 2 : 0) + (sbPlaybook and inSB and sbLoSwept ? 3 : sbPlaybook and inSB ? 1 : 0) + (dispStrong and bullCndl and bullDispFVG ? 2 : dispStrong and bullCndl ? 1 : 0) + (smtEsBull ? 1 : 0) + (useIPDA and not na(lvlIP20L.price) and math.abs(close - lvlIP20L.price) <= atrVal ? 1 : 0)
-scoreS = (inLondon or inNY or inSB ? 1 : 0) + (extQualityS ? 1 : 0) + (nestedShort ? 1 : 0) + (premDiscShortOK ? 1 : 0) + (smtBearRaw ? 2 : 0) + (qualityBear ? 1 : 0) + (useSessHier and hierShort ? 1 : 0) + (nearOpen or nearNDOG or nearNWOG ? 1 : 0) + (adrSpent ? 1 : 0) + (biasDn4h ? 1 : 0) + (useStoch and stochShortRaw ? 1 : 0) + (not na(drawSSL) ? 1 : 0) + (inHtfBearPOI ? 1 : 0) + (inBearIFVG ? 1 : 0) + (nearBPR ? 1 : 0) + (amdPhase == "DIST" ? 1 : 0) + (timeConf and useTimeConf ? 1 : 0) + (dailySellLean ? 2 : 0) + (judasSellPath ? 2 : 0) + (sbPlaybook and inSB and sbHiSwept ? 3 : sbPlaybook and inSB ? 1 : 0) + (dispStrong and bearCndl and bearDispFVG ? 2 : dispStrong and bearCndl ? 1 : 0) + (smtEsBear ? 1 : 0) + (useIPDA and not na(lvlIP20H.price) and math.abs(close - lvlIP20H.price) <= atrVal ? 1 : 0)
+scoreL = (inLondon or inNY or inSB ? 1 : 0) + (extQualityL ? 1 : 0) + (nestedLong ? 1 : 0) + (premDiscLongOK ? 1 : 0) + (smtBullRaw ? 2 : 0) + (qualityBull ? 1 : 0) + (useSessHier and hierLong ? 1 : 0) + (nearOpen or nearBell or nearNDOG or nearNWOG ? 1 : 0) + (adrSpent ? 1 : 0) + (biasUp4h ? 1 : 0) + (useStoch and stochLongRaw ? 1 : 0) + (not na(drawBSL) ? 1 : 0) + (inHtfBullPOI ? 1 : 0) + (inBullIFVG ? 1 : 0) + (nearBPR ? 1 : 0) + (amdPhase == "DIST" ? 1 : 0) + (timeConf and useTimeConf ? 1 : 0) + (dailyBuyLean ? 2 : 0) + (judasBuyPath ? 2 : 0) + (sbPlaybook and inSB and sbLoSwept ? 3 : sbPlaybook and inSB ? 1 : 0) + (dispStrong and bullCndl and bullDispFVG ? 2 : dispStrong and bullCndl ? 1 : 0) + (smtEsBull ? 1 : 0) + (useIPDA and not na(lvlIP20L.price) and math.abs(close - lvlIP20L.price) <= atrVal ? 1 : 0)
+scoreS = (inLondon or inNY or inSB ? 1 : 0) + (extQualityS ? 1 : 0) + (nestedShort ? 1 : 0) + (premDiscShortOK ? 1 : 0) + (smtBearRaw ? 2 : 0) + (qualityBear ? 1 : 0) + (useSessHier and hierShort ? 1 : 0) + (nearOpen or nearBell or nearNDOG or nearNWOG ? 1 : 0) + (adrSpent ? 1 : 0) + (biasDn4h ? 1 : 0) + (useStoch and stochShortRaw ? 1 : 0) + (not na(drawSSL) ? 1 : 0) + (inHtfBearPOI ? 1 : 0) + (inBearIFVG ? 1 : 0) + (nearBPR ? 1 : 0) + (amdPhase == "DIST" ? 1 : 0) + (timeConf and useTimeConf ? 1 : 0) + (dailySellLean ? 2 : 0) + (judasSellPath ? 2 : 0) + (sbPlaybook and inSB and sbHiSwept ? 3 : sbPlaybook and inSB ? 1 : 0) + (dispStrong and bearCndl and bearDispFVG ? 2 : dispStrong and bearCndl ? 1 : 0) + (smtEsBear ? 1 : 0) + (useIPDA and not na(lvlIP20H.price) and math.abs(close - lvlIP20H.price) <= atrVal ? 1 : 0)
 gradeL = scoreL >= 10 ? "A+" : scoreL >= 7 ? "A" : scoreL >= 5 ? "B" : "C"
 gradeS = scoreS >= 10 ? "A+" : scoreS >= 7 ? "A" : scoreS >= 5 ? "B" : "C"
 gradeOKL = gradeMode == "All" or (gradeMode == "A + B" and gradeL != "C") or (gradeMode == "A only" and (gradeL == "A" or gradeL == "A+"))
@@ -1547,6 +1607,13 @@ f_oppLong() =>
             best := na(best) ? weekOpen : math.min(best, weekOpen)
         if not na(midOpen) and midOpen > close
             best := na(best) ? midOpen : math.min(best, midOpen)
+    if useXBells
+        if not na(lonOpenPx) and lonOpenPx > close
+            best := na(best) ? lonOpenPx : math.min(best, lonOpenPx)
+        if not na(lonClosePx) and lonClosePx > close
+            best := na(best) ? lonClosePx : math.min(best, lonClosePx)
+        if not na(nyseClosePx) and nyseClosePx > close
+            best := na(best) ? nyseClosePx : math.min(best, nyseClosePx)
     if useNDOG
         if not na(ndogTop) and ndogTop > close
             best := na(best) ? ndogTop : math.min(best, ndogTop)
@@ -1566,6 +1633,13 @@ f_oppShort() =>
             best := na(best) ? weekOpen : math.max(best, weekOpen)
         if not na(midOpen) and midOpen < close
             best := na(best) ? midOpen : math.max(best, midOpen)
+    if useXBells
+        if not na(lonOpenPx) and lonOpenPx < close
+            best := na(best) ? lonOpenPx : math.max(best, lonOpenPx)
+        if not na(lonClosePx) and lonClosePx < close
+            best := na(best) ? lonClosePx : math.max(best, lonClosePx)
+        if not na(nyseClosePx) and nyseClosePx < close
+            best := na(best) ? nyseClosePx : math.max(best, nyseClosePx)
     if useNDOG
         if not na(ndogBot) and ndogBot < close
             best := na(best) ? ndogBot : math.max(best, ndogBot)
@@ -1731,6 +1805,9 @@ plotshape(showBG and sbStart, title = "Best hour", text = "BEST HOUR\nOK to trad
 plotshape(showBG and sessEnd and inLondon[1], title = "London closed", text = "LONDON CLOSED\nwait next", style = shape.labeldown, location = location.top, color = color.gray, textcolor = color.white, size = size.tiny)
 plotshape(showBG and sessEnd and not inLondon[1] and inSB[1], title = "Best hour closed", text = "BEST HOUR CLOSED\nwait next", style = shape.labeldown, location = location.top, color = color.gray, textcolor = color.white, size = size.tiny)
 plotshape(showBG and sessEnd and not inLondon[1] and not inSB[1] and inNY[1], title = "NY closed", text = "NY CLOSED\nwait next", style = shape.labeldown, location = location.top, color = color.gray, textcolor = color.white, size = size.tiny)
+plotshape(showBellMarks and showBG and bellLonOpen, title = "London cash open", text = "LON CASH OPEN\nEurope+Asia", style = shape.labeldown, location = location.top, color = color.rgb(30, 136, 229), textcolor = color.white, size = size.tiny)
+plotshape(showBellMarks and showBG and bellLonClose, title = "London cash close", text = "LON CASH CLOSE\n01:30 Melb", style = shape.labeldown, location = location.top, color = color.rgb(25, 118, 210), textcolor = color.white, size = size.tiny)
+plotshape(showBellMarks and showBG and bellNyseClose, title = "NYSE cash close", text = "NYSE CLOSE\nUS cash end", style = shape.labeldown, location = location.top, color = color.rgb(123, 31, 162), textcolor = color.white, size = size.tiny)
 
 plot(showBiasPlot and biasShow and not na(biasEma) ? biasEma : na, "4H Bias EMA", color = color.new(color.gray, 35), linewidth = 2)
 
@@ -1888,7 +1965,7 @@ if showEliteVis and barstate.islast
     if array.size(roundLevels) > 0
         for L in roundLevels
             if not na(L.price)
-                bool onOpen = useOpens and (f_nearPx(L.price, dayOpen) or f_nearPx(L.price, weekOpen) or f_nearPx(L.price, midOpen))
+                bool onOpen = (useOpens and (f_nearPx(L.price, dayOpen) or f_nearPx(L.price, weekOpen) or f_nearPx(L.price, midOpen))) or (useXBells and (f_nearPx(L.price, lonOpenPx) or f_nearPx(L.price, lonClosePx) or f_nearPx(L.price, nyseClosePx)))
                 if onOpen
                     if not na(L.lb)
                         label.delete(L.lb)
@@ -1963,6 +2040,9 @@ if barstate.islast
     f_styleLb(dayOpenLb, color.rgb(191, 128, 64))
     f_styleLb(weekOpenLb, color.rgb(176, 106, 56))
     f_styleLb(midOpenLb, color.rgb(255, 152, 0))
+    f_styleLb(lonOpenLb, color.rgb(30, 136, 229))
+    f_styleLb(lonCloseLb, color.rgb(25, 118, 210))
+    f_styleLb(nyseCloseLb, color.rgb(123, 31, 162))
     f_styleLb(ndogLb, color.rgb(191, 128, 64))
     f_styleLb(nwogLb, color.rgb(176, 106, 56))
 
@@ -1990,6 +2070,19 @@ if pinLabels and barstate.islast
             array.push(allLbs, midOpenLb)
             array.push(allLns, midOpenLn)
             array.push(allYs, midOpen)
+    if useXBells
+        if not na(lonOpenLb) and not na(lonOpenPx)
+            array.push(allLbs, lonOpenLb)
+            array.push(allLns, lonOpenLn)
+            array.push(allYs, lonOpenPx)
+        if not na(lonCloseLb) and not na(lonClosePx)
+            array.push(allLbs, lonCloseLb)
+            array.push(allLns, lonCloseLn)
+            array.push(allYs, lonClosePx)
+        if not na(nyseCloseLb) and not na(nyseClosePx)
+            array.push(allLbs, nyseCloseLb)
+            array.push(allLns, nyseCloseLn)
+            array.push(allYs, nyseClosePx)
     // Cash-out labels (only if not merged into an open) — pin with the rest
     if not na(drawUpLb) and not na(drawBSL)
         array.push(allLbs, drawUpLb)
@@ -2036,7 +2129,7 @@ if pinLabels and barstate.islast
 // ═══════════════════════════ TABLE — research sequence (v6.0) ═══════════════════════════
 // Read top → bottom: 1 GATE → 2 BIAS → 3 LIQUIDITY → 4 CONFIRM → 5 DECISION → 6 LOG
 // NOTE: table helpers MUST be global — Pine forbids function defs inside if (CE10156)
-var table t = table.new(position.top_right, 2, 35, bgcolor = color.new(color.white, 10), border_color = color.black, border_width = 1)
+var table t = table.new(position.top_right, 2, 38, bgcolor = color.new(color.white, 10), border_color = color.black, border_width = 1)
 
 f_tblSec(table tbl, int r, string title) =>
     // No merge_cells (avoids repeat-merge runtime errors) — both cells share navy header look
@@ -2261,7 +2354,7 @@ if showTable and barstate.islast
     color midMonCol = not useOpens or na(midOpen) ? color.gray : close < midOpen ? tblGood : close > midOpen ? tblBad : color.orange
 
     // ═══════════ LAYOUT (read top → bottom) ═══════════
-    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.7.9", text_color = color.white, bgcolor = color.navy, text_size = size.small)
+    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.8.1", text_color = color.white, bgcolor = color.navy, text_size = size.small)
     table.cell(t, 1, 0, hdrStatus, text_color = color.white, bgcolor = hdrBg, text_size = size.small)
 
     f_tblSec(t, 1, useSimple ? "1) GATE - can I trade now?" : "1) GATE")
@@ -2275,38 +2368,41 @@ if showTable and barstate.islast
     f_tblRow(t, 8, useSimple ? "NY midnight open" : "NY Mid Open", midMonitorTxt, tblMute, midMonCol)
     f_tblRow(t, 9, useSimple ? "Today open (NY day)" : "Day Open", dayMonitorTxt, tblMute, na(dayOpen) ? color.gray : close < dayOpen ? tblGood : close > dayOpen ? tblBad : color.orange)
     f_tblRow(t, 10, useSimple ? "Week open (NY week)" : "Week Open", weekMonitorTxt, tblMute, na(weekOpen) ? color.gray : close < weekOpen ? tblGood : close > weekOpen ? tblBad : color.orange)
-    f_tblRow(t, 11, useSimple ? "Cheap or expensive?" : "Prem/Disc", pdTxt + (pureLiq ? (useSimple ? " | pure ON" : " | pure") : ""), tblMute, pdCol)
-    f_tblRow(t, 12, useSimple ? "Day story stage" : "AMD", amdTxt, tblMute, amdCol)
+    f_tblRow(t, 11, useSimple ? "Lon cash OPEN (~17:00 Melb)" : "LonEq Open", lonOpenMon, tblMute, not useXBells or na(lonOpenPx) ? color.gray : close < lonOpenPx ? tblGood : close > lonOpenPx ? tblBad : color.orange)
+    f_tblRow(t, 12, useSimple ? "Lon cash CLOSE (~01:30 Melb)" : "LonEq Close", lonCloseMon, tblMute, not useXBells or na(lonClosePx) ? color.gray : close < lonClosePx ? tblGood : close > lonClosePx ? tblBad : color.orange)
+    f_tblRow(t, 13, useSimple ? "NYSE CLOSE (~06:00 Melb)" : "NYSE Close", nyseCloseMon, tblMute, not useXBells or na(nyseClosePx) ? color.gray : close < nyseClosePx ? tblGood : close > nyseClosePx ? tblBad : color.orange)
+    f_tblRow(t, 14, useSimple ? "Cheap or expensive?" : "Prem/Disc", pdTxt + (pureLiq ? (useSimple ? " | pure ON" : " | pure") : ""), tblMute, pdCol)
+    f_tblRow(t, 15, useSimple ? "Day story stage" : "AMD", amdTxt, tblMute, amdCol)
 
-    f_tblSec(t, 13, useSimple ? "3) LEVELS - where can price go?" : "3) LIQUIDITY")
-    f_tblRow(t, 14, useSimple ? "Where to cash out" : "Draw", drawTxt, tblMute, drawCol)
-    f_tblRow(t, 15, useSimple ? "20-day high & low" : "IPDA", ipdaTxt, tblMute, nearIpdaHi ? tblBad : nearIpdaLo ? tblGood : (useIPDA ? tblKey : color.gray))
-    f_tblRow(t, 16, useSimple ? "Yesterday high / low" : "PDH/PDL", ydayTxt, tblMute, tblKey)
-    f_tblRow(t, 17, useSimple ? "Today / week high-low" : "Day/Week", dayLiveTxt + " | " + weekLiveTxt, tblMute, tblKey)
+    f_tblSec(t, 16, useSimple ? "3) LEVELS - where can price go?" : "3) LIQUIDITY")
+    f_tblRow(t, 17, useSimple ? "Where to cash out" : "Draw", drawTxt, tblMute, drawCol)
+    f_tblRow(t, 18, useSimple ? "20-day high & low" : "IPDA", ipdaTxt, tblMute, nearIpdaHi ? tblBad : nearIpdaLo ? tblGood : (useIPDA ? tblKey : color.gray))
+    f_tblRow(t, 19, useSimple ? "Yesterday high / low" : "PDH/PDL", ydayTxt, tblMute, tblKey)
+    f_tblRow(t, 20, useSimple ? "Today / week high-low" : "Day/Week", dayLiveTxt + " | " + weekLiveTxt, tblMute, tblKey)
 
-    f_tblSec(t, 18, useSimple ? "4) CONFIRM - clues for the side" : "4) CONFIRM")
-    f_tblRow(t, 19, useSimple ? "London fake-move" : "Judas", judasTxt, tblMute, judasCol)
-    f_tblRow(t, 20, useSimple ? "Best hour (" + sbWinTxt + " NY)" : "SB", sbTxt, tblMute, sbCol)
-    f_tblRow(t, 21, useSimple ? "Other markets agree?" : "SMT", smtTxt, tblMute, smtCol)
-    f_tblRow(t, 22, useSimple ? "Session fake-moves" : "Hierarchy", hierTxt, tblMute, hierCol)
-    f_tblRow(t, 23, useSimple ? "Tired meter 5m/15m" : "StochRSI", stochTxt + stochHint, tblMute, stochCol)
-    f_tblRow(t, 24, useSimple ? "Active setup" : "Pending", pendTxt + (poiExtra != "" ? poiExtra : ""), tblMute, pendCol)
+    f_tblSec(t, 21, useSimple ? "4) CONFIRM - clues for the side" : "4) CONFIRM")
+    f_tblRow(t, 22, useSimple ? "London fake-move" : "Judas", judasTxt, tblMute, judasCol)
+    f_tblRow(t, 23, useSimple ? "Best hour (" + sbWinTxt + " NY)" : "SB", sbTxt, tblMute, sbCol)
+    f_tblRow(t, 24, useSimple ? "Other markets agree?" : "SMT", smtTxt, tblMute, smtCol)
+    f_tblRow(t, 25, useSimple ? "Session fake-moves" : "Hierarchy", hierTxt, tblMute, hierCol)
+    f_tblRow(t, 26, useSimple ? "Tired meter 5m/15m" : "StochRSI", stochTxt + stochHint, tblMute, stochCol)
+    f_tblRow(t, 27, useSimple ? "Active setup" : "Pending", pendTxt + (poiExtra != "" ? poiExtra : ""), tblMute, pendCol)
 
-    f_tblSec(t, 25, useSimple ? "5) DECISION - what to do" : "5) DECISION")
-    f_tblRow(t, 26, useSimple ? "Can I BUY?" : "BUY", blkL, tblMute, buyDecCol)
-    f_tblRow(t, 27, useSimple ? "Can I SELL?" : "SELL", blkS, tblMute, sellDecCol)
-    table.cell(t, 0, 28, useSimple ? "Next action" : "Action", text_color = color.white, bgcolor = color.navy, text_size = size.small)
-    table.cell(t, 1, 28, actTxt, text_color = actCol, text_size = size.small)
+    f_tblSec(t, 28, useSimple ? "5) DECISION - what to do" : "5) DECISION")
+    f_tblRow(t, 29, useSimple ? "Can I BUY?" : "BUY", blkL, tblMute, buyDecCol)
+    f_tblRow(t, 30, useSimple ? "Can I SELL?" : "SELL", blkS, tblMute, sellDecCol)
+    table.cell(t, 0, 31, useSimple ? "Next action" : "Action", text_color = color.white, bgcolor = color.navy, text_size = size.small)
+    table.cell(t, 1, 31, actTxt, text_color = actCol, text_size = size.small)
 
-    f_tblSec(t, 29, useSimple ? "6) LOG - score and mode" : "6) LOG")
-    f_tblRow(t, 30, useSimple ? "Research edge (desk)" : "Edge", edgeTxt, tblMute, edgeCol)
-    f_tblRow(t, 31, useSimple ? "Ideas today / last" : "Signals", str.tostring(signalsToday) + " / " + str.tostring(maxSigDay) + " · " + (lastTag == "" ? (useSimple ? "no idea yet" : "-") : lastTag + (na(lastEntry) or na(lastSL) or na(lastTP1) ? "" : " · SL " + str.tostring(lastSL, format.mintick) + " · TP " + str.tostring(lastTP1, format.mintick) + " · " + str.tostring(math.abs(lastTP1 - lastEntry) / math.abs(lastEntry - lastSL), "#.#") + "R")), tblMute, tblKey)
-    table.cell(t, 0, 32, useSimple ? "How entries work" : "Mode", text_color = tblMute, text_size = size.tiny)
-    table.cell(t, 1, 32, useSimple ? "Research → wait gate → sweep → flip → pullback | v6.7.9" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.7.9", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
-    table.cell(t, 0, 33, useSimple ? "Tools ON" : "Edges", text_color = tblMute, text_size = size.tiny)
-    table.cell(t, 1, 33, useSimple ? ((useDailyBias ? "DaySide " : "") + (useJudasWin ? "FakeMove " : "") + (useDispGate ? "StrongPush " : "") + (sbPlaybook ? "BestHour " : "") + (useIPDA ? "20/40Day " : "") + (useSmtES ? "Stocks " : "") + (useDeadHrs ? "SlowHrs " : "") + (useHTFDraw ? "TP-lines " : "") + (useAMD ? "DayStory " : "") + (aPlusMode ? "TopOnly" : "")) : ((useDailyBias ? "DayBias " : "") + (useJudasWin ? "Judas " : "") + (useDispGate ? "DispFVG " : "") + (sbPlaybook ? "SB " : "") + (useIPDA ? "IPDA " : "") + (useSmtES ? "ES " : "") + (useDeadHrs ? "DeadHrs " : "") + (useHTFDraw ? "Draw " : "") + (useAMD ? "AMD " : "") + (aPlusMode ? "A+" : "")), text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
-    table.cell(t, 0, 34, useSimple ? "Desk rule" : "Flow", text_color = tblMute, text_size = size.tiny)
-    table.cell(t, 1, 34, useSimple ? "Trade clock=NY · Display=Melb · Gate→Bias→Confirm" : "G->B->L->C->D · TZ=NY", text_color = color.gray, text_size = size.tiny)
+    f_tblSec(t, 32, useSimple ? "6) LOG - score and mode" : "6) LOG")
+    f_tblRow(t, 33, useSimple ? "Research edge (desk)" : "Edge", edgeTxt, tblMute, edgeCol)
+    f_tblRow(t, 34, useSimple ? "Ideas today / last" : "Signals", str.tostring(signalsToday) + " / " + str.tostring(maxSigDay) + " · " + (lastTag == "" ? (useSimple ? "no idea yet" : "-") : lastTag + (na(lastEntry) or na(lastSL) or na(lastTP1) ? "" : " · SL " + str.tostring(lastSL, format.mintick) + " · TP " + str.tostring(lastTP1, format.mintick) + " · " + str.tostring(math.abs(lastTP1 - lastEntry) / math.abs(lastEntry - lastSL), "#.#") + "R")), tblMute, tblKey)
+    table.cell(t, 0, 35, useSimple ? "How entries work" : "Mode", text_color = tblMute, text_size = size.tiny)
+    table.cell(t, 1, 35, useSimple ? "Research → wait gate → sweep → flip → pullback | v6.8.1" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.8.1", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
+    table.cell(t, 0, 36, useSimple ? "Tools ON" : "Edges", text_color = tblMute, text_size = size.tiny)
+    table.cell(t, 1, 36, useSimple ? ((useDailyBias ? "DaySide " : "") + (useJudasWin ? "FakeMove " : "") + (useDispGate ? "StrongPush " : "") + (sbPlaybook ? "BestHour " : "") + (useIPDA ? "20/40Day " : "") + (useSmtES ? "Stocks " : "") + (useDeadHrs ? "SlowHrs " : "") + (useHTFDraw ? "TP-lines " : "") + (useAMD ? "DayStory " : "") + (useXBells ? "Bells " : "") + (aPlusMode ? "TopOnly" : "")) : ((useDailyBias ? "DayBias " : "") + (useJudasWin ? "Judas " : "") + (useDispGate ? "DispFVG " : "") + (sbPlaybook ? "SB " : "") + (useIPDA ? "IPDA " : "") + (useSmtES ? "ES " : "") + (useDeadHrs ? "DeadHrs " : "") + (useHTFDraw ? "Draw " : "") + (useAMD ? "AMD " : "") + (useXBells ? "Bells " : "") + (aPlusMode ? "A+" : "")), text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
+    table.cell(t, 0, 37, useSimple ? "Desk rule" : "Flow", text_color = tblMute, text_size = size.tiny)
+    table.cell(t, 1, 37, useSimple ? "Trade clock=NY · Display=Melb · Gate→Bias→Confirm" : "G->B->L->C->D · TZ=NY", text_color = color.gray, text_size = size.tiny)
 
 bgcolor(showEliteVis and useAMD and amdPhase == "ACC" ? color.new(color.blue, 96) : showEliteVis and useAMD and amdPhase == "MAN" ? color.new(color.orange, 94) : showEliteVis and useAMD and amdPhase == "DIST" ? color.new(color.green, 96) : na, title = "AMD phase")
 

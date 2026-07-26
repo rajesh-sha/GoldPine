@@ -1,13 +1,16 @@
-# GoldPine v6.7.9
+# GoldPine v6.8.1 — Exchange Bells
 
-Desk-edge v6.8.0 reverted — back to the last stable original builds.
+Adds multi-exchange open/close **price magnets** (London cash open/close, NYSE close) on the NY trade clock. Melb times shown on labels/table.
 
-## Indicator (chart map / table)
+## Indicator
 https://raw.githubusercontent.com/rajesh-sha/GoldPine/cursor/gold-liq-sweep-pro-v3-09e0/GOLD_FINAL_PASTE_THIS.txt
 
 ## Strategy Tester
 https://raw.githubusercontent.com/rajesh-sha/GoldPine/cursor/gold-liq-sweep-pro-v3-09e0/GOLD_STRATEGY_PASTE_THIS.txt
 
-Open labels: `above = SELL side · comes back here` (not "magnet").
+**Bells (NY → Melb AEST tip)**
+- Lon cash OPEN `03:00 NY` ≈ `17:00 Melb`
+- Lon cash CLOSE `11:30 NY` ≈ `01:30 Melb` (your market-clock London close)
+- NYSE CLOSE `16:00 NY` ≈ `06:00 Melb`
 
-**Important:** remove the old script from the chart, then paste/add v6.7.9 so defaults refresh.
+Remove + re-add script so new defaults apply. Keep IST Close Pulse as a separate script.
