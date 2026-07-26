@@ -1,0 +1,686 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// Rajesh Sha Strategy — TIDY (logic unchanged)
+// Original: coded by the_pro_coder (Fiverr)
+// Tidied: inputs grouped, sections clarified, small UI/data bugs fixed.
+// Core entry / exit / MACD / ATR / observation rules = same as original.
+// ═══════════════════════════════════════════════════════════════════════════
+//@version=5
+strategy("Rajesh Sha Strategy",
+     overlay              = true,
+     max_labels_count     = 500,
+     max_lines_count      = 500,
+     margin_long          = 0.0000001,
+     margin_short         = 0.0000001,
+     default_qty_type     = strategy.percent_of_equity,
+     default_qty_value    = 2,
+     process_orders_on_close = true)
+
+// ═══════════════════════════ INPUTS ═══════════════════════════
+grpTZ   = "Timezone / Session Marks"
+grpMACD = "MACD / ATR"
+grpSess = "Session Open / Close (IST)"
+grpSig  = "Signal / Risk"
+grpTbl  = "Table Settings"
+grpLbl  = "Label Settings"
+
+price_timezone_8AM = input.string("UTC+1", "8 AM Price Timezone", group = grpTZ)
+
+macd_fast_period   = input.int(12, "MACD Fast EMA Period", group = grpMACD)
+macd_slow_period   = input.int(26, "MACD Slow EMA Period", group = grpMACD)
+macd_signal_period = input.int(9,  "MACD Signal Line Period", group = grpMACD)
+atr_period         = input.int(14, "ATR Period", group = grpMACD)
+atr_adjustment     = input.float(2, "ATR Adjustment %", group = grpMACD)
+
+closing_hour   = input.int(15, "Closing Time", inline = "closing_time", group = grpSess)
+closing_minute = input.int(30, ":",           inline = "closing_time", group = grpSess)
+opening_hour   = input.int(9,  "Opening Time", inline = "opening_time", group = grpSess)
+opening_minute = input.int(30, ":",            inline = "opening_time", group = grpSess)
+
+percentage_threshold          = input.float(0.75, "Percentage Threshold for Bars", minval = 0.0, maxval = 1.0, group = grpSig)
+observation_timeframe_minutes = input.int(15, "Observation Period Minutes", group = grpSig)
+sl_inp    = input.float(2, "SL Val", group = grpSig)
+unit_type = input.string("points", "SL Unit Type", options = ["points", "pips"], group = grpSig)
+x         = input.int(50, "Extend Trade Line for X Candles", group = grpSig)
+
+show_time_price_table = input.bool(true, "Show Time Price Table", group = grpTbl)
+time_price_table_pos  = input.string(position.top_right, "Time Price Table Position", options = [position.top_left, position.top_center, position.top_right, position.middle_left, position.middle_center, position.middle_right, position.bottom_left, position.bottom_center, position.bottom_right], group = grpTbl)
+
+show_price_table = input.bool(true, "Show Price Table", group = grpTbl)
+price_table_pos  = input.string(position.bottom_center, "Price Table Position", options = [position.top_left, position.top_center, position.top_right, position.middle_left, position.middle_center, position.middle_right, position.bottom_left, position.bottom_center, position.bottom_right], group = grpTbl)
+
+show_table = input.bool(true, "Show Compact Candle Status Table", group = grpTbl)
+table_pos  = input.string(position.bottom_left, "Compact Candle Status Table Position", options = [position.top_left, position.top_center, position.top_right, position.middle_left, position.middle_center, position.middle_right, position.bottom_left, position.bottom_center, position.bottom_right], group = grpTbl)
+
+show_week_data_table = input.bool(true, "Show Week Data Table", group = grpTbl)
+week_data_table_pos  = input.string(position.top_center, "Week Data Table Position", options = [position.top_left, position.top_center, position.top_right, position.middle_left, position.middle_center, position.middle_right, position.bottom_left, position.bottom_center, position.bottom_right], group = grpTbl)
+
+show_prev_week_data_table = input.bool(true, "Show Prev Week Data Table", group = grpTbl)
+prev_week_data_table_pos  = input.string(position.bottom_right, "Prev Week Data Table Position", options = [position.top_left, position.top_center, position.top_right, position.middle_left, position.middle_center, position.middle_right, position.bottom_left, position.bottom_center, position.bottom_right], group = grpTbl)
+
+font_size = input.string(size.small, "Font Size", options = [size.auto, size.tiny, size.small, size.normal, size.large, size.huge], group = grpTbl)
+bg_color  = input.color(color.rgb(255, 254, 254, 30), "Background Color", group = grpTbl)
+
+show_threshold_data     = input.bool(true,  "Show Threshold Data", group = grpLbl)
+show_daily_high         = input.bool(true,  "Show Daily High", group = grpLbl)
+show_daily_low          = input.bool(true,  "Show Daily Low", group = grpLbl)
+show_opening_price      = input.bool(true,  "Show 9:30 IST", group = grpLbl)
+show_prev_opening_price = input.bool(true,  "Show Prev 9:30 IST", group = grpLbl)
+show_closing_price      = input.bool(true,  "Show 15:30 IST", group = grpLbl)
+show_prev_closing_price = input.bool(true,  "Show Prev 15:30 IST", group = grpLbl)
+show_mon_open           = input.bool(false, "Monday Open", group = grpLbl)
+show_mon_close          = input.bool(false, "Monday Close", group = grpLbl)
+show_tue_open           = input.bool(false, "Tuesday Open", group = grpLbl)
+show_tue_close          = input.bool(false, "Tuesday Close", group = grpLbl)
+show_weekly_high        = input.bool(false, "Weekly High", group = grpLbl)
+show_weekly_low         = input.bool(false, "Weekly Low", group = grpLbl)
+show_monthly_high       = input.bool(false, "Monthly High", group = grpLbl)
+show_monthly_low        = input.bool(false, "Monthly Low", group = grpLbl)
+
+// ═══════════════════════════ CONSTANTS ═══════════════════════════
+TZ_IST = "GMT+0530"
+TZ_NY  = "UTC-4"   // original used UTC-4 for Mon/Tue open-close marks
+
+tf_m15 = "15"
+tf_h1  = "60"
+tf_h4  = "240"
+tf_d1  = "D"
+tf_w1  = "W"
+tf_m1  = "M"
+tf_m3  = "3M"
+
+// ═══════════════════════════ SESSION FLAGS ═══════════════════════════
+isNewDay   = session.isfirstbar_regular
+isNewWeek  = ta.change(time("W"))
+isNewMonth = ta.change(time("M"))
+
+// ═══════════════════════════ 1-MIN DATA ═══════════════════════════
+highs_1min  = request.security_lower_tf(syminfo.tickerid, "1", high)
+lows_1min   = request.security_lower_tf(syminfo.tickerid, "1", low)
+opens_1min  = request.security_lower_tf(syminfo.tickerid, "1", open)
+closes_1min = request.security_lower_tf(syminfo.tickerid, "1", close)
+times_1min  = request.security_lower_tf(syminfo.tickerid, "1", time)
+arr_size    = array.size(closes_1min)
+
+// ═══════════════════════════ LEVEL STATE ═══════════════════════════
+var float daily_high = na
+var float daily_low  = na
+var int   daily_high_time = na
+var int   daily_low_time  = na
+
+var float weekly_high = na
+var float weekly_low  = na
+var int   weekly_high_time = na
+var int   weekly_low_time  = na
+
+var float monthly_high = na
+var float monthly_low  = na
+var int   monthly_high_time = na
+var int   monthly_low_time  = na
+
+var float mon_o = na
+var float mon_c = na
+var float tue_o = na
+var float tue_c = na
+
+var float eightAM_price      = na
+var float eightAM_prev_price = na
+
+// Week table (IST 09:30 / 15:30) — current + previous week
+var float in_mon_open = na
+var float in_mon_close = na
+var int   in_mon_date = na
+var float in_mon_open_prev = na
+var float in_mon_close_prev = na
+var int   in_mon_date_prev = na
+
+var float in_tue_open = na
+var float in_tue_close = na
+var int   in_tue_date = na
+var float in_tue_open_prev = na
+var float in_tue_close_prev = na
+var int   in_tue_date_prev = na
+
+var float in_wed_open = na
+var float in_wed_close = na
+var int   in_wed_date = na
+var float in_wed_open_prev = na
+var float in_wed_close_prev = na
+var int   in_wed_date_prev = na
+
+var float in_thu_open = na
+var float in_thu_close = na
+var int   in_thu_date = na
+var float in_thu_open_prev = na
+var float in_thu_close_prev = na
+var int   in_thu_date_prev = na
+
+var float in_fri_open = na
+var float in_fri_close = na
+var int   in_fri_date = na
+var float in_fri_open_prev = na
+var float in_fri_close_prev = na
+var int   in_fri_date_prev = na
+
+// Roll IST week table → previous on new week (GMT+0530)
+if ta.change(time("W", "0000-0000:123456", TZ_IST))
+    in_mon_open_prev := in_mon_open
+    in_mon_open := na
+    in_mon_close_prev := in_mon_close
+    in_mon_close := na
+    in_mon_date_prev := in_mon_date
+    in_mon_date := na
+
+    in_tue_open_prev := in_tue_open
+    in_tue_open := na
+    in_tue_close_prev := in_tue_close
+    in_tue_close := na
+    in_tue_date_prev := in_tue_date
+    in_tue_date := na
+
+    in_wed_open_prev := in_wed_open
+    in_wed_open := na
+    in_wed_close_prev := in_wed_close
+    in_wed_close := na
+    in_wed_date_prev := in_wed_date
+    in_wed_date := na
+
+    in_thu_open_prev := in_thu_open
+    in_thu_open := na
+    in_thu_close_prev := in_thu_close
+    in_thu_close := na
+    in_thu_date_prev := in_thu_date
+    in_thu_date := na
+
+    in_fri_open_prev := in_fri_open
+    in_fri_open := na
+    in_fri_close_prev := in_fri_close
+    in_fri_close := na
+    in_fri_date_prev := in_fri_date
+    in_fri_date := na
+
+if isNewDay
+    daily_high := na
+    daily_low  := na
+    // Preserve prior 8AM mark for the table (was declared but never set in original)
+    eightAM_prev_price := eightAM_price
+    eightAM_price := na
+
+if isNewWeek
+    weekly_high := na
+    weekly_low  := na
+
+if ta.change(time("W", "0000-0000:123456", TZ_NY))
+    mon_o := na
+    mon_c := na
+    tue_o := na
+    tue_c := na
+
+if isNewMonth
+    monthly_high := na
+    monthly_low  := na
+
+// Scan lower-TF 1m bars packed into the current chart bar
+if arr_size
+    for i = 0 to arr_size - 1
+        high_val  = array.get(highs_1min, i)
+        low_val   = array.get(lows_1min, i)
+        open_val  = array.get(opens_1min, i)
+        close_val = array.get(closes_1min, i)
+        time_val  = array.get(times_1min, i)
+
+        if hour(time_val, price_timezone_8AM) == 8 and minute(time_val, price_timezone_8AM) == 0
+            eightAM_price := open_val
+
+        if dayofweek(time_val, TZ_NY) == dayofweek.monday and hour(time_val, TZ_NY) == 0 and minute(time_val, TZ_NY) == 0
+            mon_o := open_val
+        if dayofweek(time_val, TZ_NY) == dayofweek.monday and hour(time_val, TZ_NY) == 23 and minute(time_val, TZ_NY) == 59
+            mon_c := close_val
+        if dayofweek(time_val, TZ_NY) == dayofweek.tuesday and hour(time_val, TZ_NY) == 0 and minute(time_val, TZ_NY) == 0
+            tue_o := open_val
+        if dayofweek(time_val, TZ_NY) == dayofweek.tuesday and hour(time_val, TZ_NY) == 23 and minute(time_val, TZ_NY) == 59
+            tue_c := close_val
+
+        // IST week table data
+        if dayofweek(time_val, TZ_IST) == dayofweek.monday and hour(time_val, TZ_IST) == 9 and minute(time_val, TZ_IST) == 30
+            in_mon_open := open_val
+            in_mon_date := time_val
+        if dayofweek(time_val, TZ_IST) == dayofweek.monday and hour(time_val, TZ_IST) == 15 and minute(time_val, TZ_IST) == 30
+            in_mon_close := close_val
+
+        if dayofweek(time_val, TZ_IST) == dayofweek.tuesday and hour(time_val, TZ_IST) == 9 and minute(time_val, TZ_IST) == 30
+            in_tue_open := open_val
+            in_tue_date := time_val
+        if dayofweek(time_val, TZ_IST) == dayofweek.tuesday and hour(time_val, TZ_IST) == 15 and minute(time_val, TZ_IST) == 30
+            in_tue_close := close_val
+
+        if dayofweek(time_val, TZ_IST) == dayofweek.wednesday and hour(time_val, TZ_IST) == 9 and minute(time_val, TZ_IST) == 30
+            in_wed_open := open_val
+            in_wed_date := time_val
+        if dayofweek(time_val, TZ_IST) == dayofweek.wednesday and hour(time_val, TZ_IST) == 15 and minute(time_val, TZ_IST) == 30
+            in_wed_close := close_val
+
+        if dayofweek(time_val, TZ_IST) == dayofweek.thursday and hour(time_val, TZ_IST) == 9 and minute(time_val, TZ_IST) == 30
+            in_thu_open := open_val
+            in_thu_date := time_val
+        if dayofweek(time_val, TZ_IST) == dayofweek.thursday and hour(time_val, TZ_IST) == 15 and minute(time_val, TZ_IST) == 30
+            in_thu_close := close_val
+
+        if dayofweek(time_val, TZ_IST) == dayofweek.friday and hour(time_val, TZ_IST) == 9 and minute(time_val, TZ_IST) == 30
+            in_fri_open := open_val
+            in_fri_date := time_val
+        if dayofweek(time_val, TZ_IST) == dayofweek.friday and hour(time_val, TZ_IST) == 15 and minute(time_val, TZ_IST) == 30
+            in_fri_close := close_val
+
+        // Daily / weekly / monthly extremes
+        if high_val > daily_high or na(daily_high)
+            daily_high := high_val
+            daily_high_time := time_val
+        if low_val < daily_low or na(daily_low)
+            daily_low := low_val
+            daily_low_time := time_val
+
+        if high_val > weekly_high or na(weekly_high)
+            weekly_high := high_val
+            weekly_high_time := time_val
+        if low_val < weekly_low or na(weekly_low)
+            weekly_low := low_val
+            weekly_low_time := time_val
+
+        if high_val > monthly_high or na(monthly_high)
+            monthly_high := high_val
+            monthly_high_time := time_val
+        if low_val < monthly_low or na(monthly_low)
+            monthly_low := low_val
+            monthly_low_time := time_val
+
+// ═══════════════════════════ MACD / ATR (same as original) ═══════════════════════════
+get_macd(src, fast, slow, signal) =>
+    [macdLine_, signalLine_, _] = ta.macd(src, fast, slow, signal)
+    [macdLine_[1], signalLine_[1]]
+
+[macdLine, signalLine] = request.security(syminfo.tickerid, "60", get_macd(close, macd_fast_period, macd_slow_period, macd_signal_period), lookahead = barmerge.lookahead_on)
+
+atrValue        = request.security(syminfo.tickerid, "D", ta.atr(atr_period)[1], lookahead = barmerge.lookahead_on) * (1 - atr_adjustment / 100)
+weekly_atrValue = request.security(syminfo.tickerid, "W", ta.atr(atr_period)[1], lookahead = barmerge.lookahead_on)
+
+closing_time = hour(time("1", "0000-0000:1234567", TZ_IST), TZ_IST) == closing_hour and minute(time("1", "0000-0000:1234567", TZ_IST), TZ_IST) == closing_minute
+opening_time = hour(time("1", "0000-0000:1234567", TZ_IST), TZ_IST) == opening_hour and minute(time("1", "0000-0000:1234567", TZ_IST), TZ_IST) == opening_minute
+
+var int   closing_bar = na
+var float closing_price = na
+var float prev_closing_price = na
+var int   opening_bar = na
+var float opening_price = na
+var float prev_opening_price = na
+var array<int> obs_candles_arr = array.new_int()
+
+if isNewDay
+    prev_closing_price := closing_price
+    prev_opening_price := opening_price
+    closing_price := na
+    opening_price := na
+
+if closing_time
+    closing_bar := bar_index[1]
+    closing_price := close[1]
+    obs_candles_arr := array.new_int()
+
+if opening_time
+    opening_bar := bar_index
+    opening_price := open
+
+longMACD  = macdLine > signalLine
+shortMACD = macdLine < signalLine
+
+var bool longMACD_close  = false
+var bool shortMACD_close = false
+
+if closing_time
+    longMACD_close  := longMACD
+    shortMACD_close := shortMACD
+
+// Observation window helpers (kept; end hour/min unused in original too)
+add_time(prev_hour, prev_min, adding_mins) =>
+    total_minutes = prev_hour * 60 + prev_min + adding_mins
+    resultant_hour = int(math.floor(total_minutes / 60) % 24)
+    resultant_minute = int(total_minutes % 60)
+    [resultant_hour, resultant_minute]
+
+[obs_end_hour, obs_end_minute] = add_time(closing_hour, closing_minute, observation_timeframe_minutes)
+
+timeframe_mins = (time_close - time) / 60000
+obs_candles    = observation_timeframe_minutes / timeframe_mins
+obs_end_index  = closing_bar + obs_candles
+
+var int up_count = 0
+var int down_count = 0
+var int mins_counted = 0
+
+if closing_time
+    up_count := 0
+    down_count := 0
+    mins_counted := 0
+
+if bar_index > closing_bar and bar_index <= obs_end_index and arr_size
+    for i = 0 to arr_size - 1
+        close_val = array.get(closes_1min, i)
+        if close_val > closing_price
+            up_count += 1
+        else
+            down_count += 1
+
+tot_count  = up_count + down_count
+// Guard only: same outcome when tot_count==0 (na >= threshold is false)
+up_perc    = tot_count > 0 ? up_count / tot_count : na
+down_perc  = tot_count > 0 ? down_count / tot_count : na
+
+sl_pts = unit_type == "points" ? sl_inp : sl_inp * 10 * syminfo.mintick
+
+// ═══════════════════════════ TRADE PLAN (unchanged formulas) ═══════════════════════════
+longTP      = (atrValue - (closing_price - daily_low)) + closing_price
+longSL      = closing_price - sl_pts
+tp_longCond = longTP > closing_price and (atrValue - (closing_price - daily_low)) < weekly_atrValue
+
+shortTP      = closing_price - (atrValue - (closing_price - daily_high))
+shortSL      = closing_price + sl_pts
+tp_shortCond = shortTP < closing_price and (atrValue - (closing_price - daily_high)) < weekly_atrValue
+
+// NOTE: original shortCondition did NOT use tp_shortCond — kept identical on purpose
+longCondition  = bar_index == obs_end_index and up_perc >= percentage_threshold and daily_low < closing_price and closing_price >= opening_price and prev_closing_price < closing_price and longMACD and longMACD_close and tp_longCond
+shortCondition = bar_index == obs_end_index and down_perc >= percentage_threshold and daily_high > closing_price and closing_price <= opening_price and prev_closing_price > closing_price and shortMACD and shortMACD_close
+
+plotshape(longCondition,  title = "Buy",  text = "Buy",  textcolor = color.white, style = shape.labelup,   size = size.tiny, location = location.belowbar, color = color.green, force_overlay = true)
+plotshape(shortCondition, title = "Sell", text = "Sell", textcolor = color.white, style = shape.labeldown, size = size.tiny, location = location.abovebar, color = color.red,   force_overlay = true)
+
+f_drawPlan(float entryP, float tpP, float slP) =>
+    line.new(bar_index, entryP, bar_index + x, entryP, color = color.yellow, width = 2)
+    label.new(bar_index + x, entryP, "Entry: " + str.tostring(entryP, format.mintick), color = color.yellow, textcolor = color.black, style = label.style_label_left, size = size.small)
+    line.new(bar_index, tpP, bar_index + x, tpP, color = color.green, width = 2)
+    label.new(bar_index + x, tpP, "TP: " + str.tostring(tpP, format.mintick), color = color.green, textcolor = color.black, style = label.style_label_left, size = size.small)
+    line.new(bar_index, slP, bar_index + x, slP, color = color.red, width = 2)
+    label.new(bar_index + x, slP, "SL: " + str.tostring(slP, format.mintick), color = color.red, textcolor = color.black, style = label.style_label_left, size = size.small)
+
+if longCondition
+    f_drawPlan(closing_price, longTP, longSL)
+    strategy.entry("Long Entry", strategy.long)
+    strategy.exit("Long Exit", from_entry = "Long Entry", limit = longTP, stop = longSL)
+
+if shortCondition
+    f_drawPlan(closing_price, shortTP, shortSL)
+    strategy.entry("Short Entry", strategy.short)
+    strategy.exit("Short Exit", from_entry = "Short Entry", limit = shortTP, stop = shortSL)
+
+// ═══════════════════════════ HTF CANDLE TABLE ═══════════════════════════
+get_ohlc() =>
+    [open[1], high[1], low[1], close[1]]
+
+get_candle_data(string tf) =>
+    [o, h, l, c] = request.security(syminfo.tickerid, tf, get_ohlc(), lookahead = barmerge.lookahead_on)
+    status = c > o ? "Green" : "Red"
+    atr_value = request.security(syminfo.tickerid, tf, ta.atr(atr_period)[1], lookahead = barmerge.lookahead_on)
+    [o, h, l, c, status, atr_value]
+
+[m15_open, m15_high, m15_low, m15_close, m15_status, m15_atr_value] = get_candle_data(tf_m15)
+[h1_open,  h1_high,  h1_low,  h1_close,  h1_status,  h1_atr_value]  = get_candle_data(tf_h1)
+[h4_open,  h4_high,  h4_low,  h4_close,  h4_status,  h4_atr_value]  = get_candle_data(tf_h4)
+[d1_open,  d1_high,  d1_low,  d1_close,  d1_status,  d1_atr_value]  = get_candle_data(tf_d1)
+[w1_open,  w1_high,  w1_low,  w1_close,  w1_status,  w1_atr_value]  = get_candle_data(tf_w1)
+[m1_open,  m1_high,  m1_low,  m1_close,  m1_status,  m1_atr_value]  = get_candle_data(tf_m1)
+[m3_open,  m3_high,  m3_low,  m3_close,  m3_status,  m3_atr_value]  = get_candle_data(tf_m3)
+
+// Fixed: original wrote M1 and M3 into the same row (M3 overwrote M1)
+var table compact_table = table.new(position = table_pos, columns = 7, rows = 8, bgcolor = bg_color, border_color = color.black, frame_color = color.black, frame_width = 2, border_width = 2)
+
+f_row(table t, int row, string name, float o, float h, float l, float c, string status, float atrV) =>
+    table.cell(t, 0, row, name, text_size = font_size)
+    table.cell(t, 1, row, str.tostring(o, format.mintick), text_size = font_size)
+    table.cell(t, 2, row, str.tostring(h, format.mintick), text_size = font_size)
+    table.cell(t, 3, row, str.tostring(l, format.mintick), text_size = font_size)
+    table.cell(t, 4, row, str.tostring(c, format.mintick), text_size = font_size)
+    table.cell(t, 5, row, status, text_size = font_size, text_color = color.black, bgcolor = status == "Green" ? color.green : color.red)
+    table.cell(t, 6, row, str.tostring(atrV, format.mintick), text_size = font_size)
+
+if show_table
+    table.cell(compact_table, 0, 0, "Timeframe", text_size = font_size, bgcolor = color.new(color.gray, 80))
+    table.cell(compact_table, 1, 0, "Open",      text_size = font_size, bgcolor = color.new(color.gray, 80))
+    table.cell(compact_table, 2, 0, "High",      text_size = font_size, bgcolor = color.new(color.gray, 80))
+    table.cell(compact_table, 3, 0, "Low",       text_size = font_size, bgcolor = color.new(color.gray, 80))
+    table.cell(compact_table, 4, 0, "Close",     text_size = font_size, bgcolor = color.new(color.gray, 80))
+    table.cell(compact_table, 5, 0, "Color",     text_size = font_size, bgcolor = color.new(color.gray, 80))
+    table.cell(compact_table, 6, 0, "ATR",       text_size = font_size, bgcolor = color.new(color.gray, 80))
+    f_row(compact_table, 1, "M15", m15_open, m15_high, m15_low, m15_close, m15_status, m15_atr_value)
+    f_row(compact_table, 2, "H1",  h1_open,  h1_high,  h1_low,  h1_close,  h1_status,  h1_atr_value)
+    f_row(compact_table, 3, "H4",  h4_open,  h4_high,  h4_low,  h4_close,  h4_status,  h4_atr_value)
+    f_row(compact_table, 4, "D1",  d1_open,  d1_high,  d1_low,  d1_close,  d1_status,  d1_atr_value)
+    f_row(compact_table, 5, "W1",  w1_open,  w1_high,  w1_low,  w1_close,  w1_status,  w1_atr_value)
+    f_row(compact_table, 6, "M1",  m1_open,  m1_high,  m1_low,  m1_close,  m1_status,  m1_atr_value)
+    f_row(compact_table, 7, "M3",  m3_open,  m3_high,  m3_low,  m3_close,  m3_status,  m3_atr_value)
+
+// ═══════════════════════════ TIME / PRICE TABLE ═══════════════════════════
+var table myTable = table.new(time_price_table_pos, 3, 17, border_width = 1, bgcolor = bg_color, border_color = color.black, frame_color = color.black, frame_width = 2)
+
+if show_time_price_table and (barstate.islastconfirmedhistory or barstate.islast)
+    table.cell(myTable, 0, 0, "Label/Description", text_color = color.white, bgcolor = color.blue, text_size = font_size)
+    table.cell(myTable, 1, 0, "Time",              text_color = color.white, bgcolor = color.blue, text_size = font_size)
+    table.cell(myTable, 2, 0, "Price",             text_color = color.white, bgcolor = color.blue, text_size = font_size)
+
+    table.cell(myTable, 0, 1, "Day-H", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 1, 1, str.format_time(daily_high_time, "HH:mm", TZ_IST) + " IST", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 2, 1, str.tostring(daily_high), text_color = color.black, text_size = font_size)
+
+    table.cell(myTable, 0, 2, "Day-L", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 1, 2, str.format_time(daily_low_time, "HH:mm", TZ_IST) + " IST", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 2, 2, str.tostring(daily_low), text_color = color.black, text_size = font_size)
+
+    table.cell(myTable, 0, 3, "09:30 IST (Today)", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 1, 3, "09:30 IST", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 2, 3, str.tostring(opening_price, format.mintick), text_color = color.black, text_size = font_size)
+
+    table.cell(myTable, 0, 4, "9:30 IST (Prev)", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 1, 4, "9:30 IST", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 2, 4, str.tostring(prev_opening_price, format.mintick), text_color = color.black, text_size = font_size)
+
+    table.cell(myTable, 0, 5, "15:30 IST (Today)", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 1, 5, "15:30 IST", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 2, 5, str.tostring(closing_price, format.mintick), text_color = color.black, text_size = font_size)
+
+    table.cell(myTable, 0, 6, "15:30 IST (Prev)", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 1, 6, "15:30 IST", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 2, 6, str.tostring(prev_closing_price, format.mintick), text_color = color.black, text_size = font_size)
+
+    table.cell(myTable, 0, 7, "Mon-O", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 1, 7, "00:00 UTC-4", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 2, 7, str.tostring(mon_o, format.mintick), text_color = color.black, text_size = font_size)
+
+    table.cell(myTable, 0, 8, "Mon-C", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 1, 8, "23:59 UTC-4", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 2, 8, str.tostring(mon_c, format.mintick), text_color = color.black, text_size = font_size)
+
+    table.cell(myTable, 0, 9, "Tue-O", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 1, 9, "00:00 UTC-4", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 2, 9, str.tostring(tue_o, format.mintick), text_color = color.black, text_size = font_size)
+
+    table.cell(myTable, 0, 10, "Tue-C", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 1, 10, "23:59 UTC-4", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 2, 10, str.tostring(tue_c, format.mintick), text_color = color.black, text_size = font_size)
+
+    table.cell(myTable, 0, 11, "Wk-H", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 1, 11, str.format_time(weekly_high_time, "yyyy-MM-dd HH:mm", TZ_IST) + " IST", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 2, 11, str.tostring(weekly_high, format.mintick), text_color = color.black, text_size = font_size)
+
+    table.cell(myTable, 0, 12, "Wk-L", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 1, 12, str.format_time(weekly_low_time, "yyyy-MM-dd HH:mm", TZ_IST) + " IST", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 2, 12, str.tostring(weekly_low, format.mintick), text_color = color.black, text_size = font_size)
+
+    table.cell(myTable, 0, 13, "Mo-H", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 1, 13, str.format_time(monthly_high_time, "yyyy-MM-dd HH:mm", TZ_IST) + " IST", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 2, 13, str.tostring(monthly_high, format.mintick), text_color = color.black, text_size = font_size)
+
+    table.cell(myTable, 0, 14, "Mo-L", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 1, 14, str.format_time(monthly_low_time, "yyyy-MM-dd HH:mm", TZ_IST) + " IST", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 2, 14, str.tostring(monthly_low, format.mintick), text_color = color.black, text_size = font_size)
+
+    table.cell(myTable, 0, 15, "8:00 AM Today", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 1, 15, "8:00 AM " + price_timezone_8AM, text_color = color.black, text_size = font_size)
+    table.cell(myTable, 2, 15, str.tostring(eightAM_price, format.mintick), text_color = color.black, text_size = font_size)
+
+    table.cell(myTable, 0, 16, "8:00 AM Prev", text_color = color.black, text_size = font_size)
+    table.cell(myTable, 1, 16, "8:00 AM " + price_timezone_8AM, text_color = color.black, text_size = font_size)
+    table.cell(myTable, 2, 16, str.tostring(eightAM_prev_price, format.mintick), text_color = color.black, text_size = font_size)
+
+plot(daily_high, "Daily High", color = color.rgb(140, 140, 140, 43))
+plot(daily_low,  "Daily Low",  color = color.rgb(140, 140, 140, 43))
+
+// ═══════════════════════════ FLOATING LABELS ═══════════════════════════
+var array<label> labels_arr = array.new_label()
+label_arr_size = array.size(labels_arr)
+if label_arr_size
+    for i = 0 to label_arr_size - 1
+        label.delete(array.get(labels_arr, i))
+array.clear(labels_arr)
+
+if show_threshold_data
+    if longCondition
+        label.new(bar_index, high, text = "Up : " + str.tostring(up_perc * 100, format.mintick) + "%\nDown : " + str.tostring(down_perc * 100, format.mintick) + "%", color = color.rgb(187, 187, 187, 43), textcolor = color.black)
+    else if shortCondition
+        label.new(bar_index, low, style = label.style_label_up, text = "Up : " + str.tostring(up_perc * 100, format.mintick) + "%\nDown : " + str.tostring(down_perc * 100, format.mintick) + "%", color = color.rgb(187, 187, 187, 43), textcolor = color.black)
+    else if bar_index == obs_end_index
+        label.new(bar_index, high, text = "Up : " + str.tostring(up_perc * 100, format.mintick) + "%\nDown : " + str.tostring(down_perc * 100, format.mintick) + "%", color = color.rgb(187, 187, 187, 43), textcolor = color.black)
+
+f_pushLbl(bool on, float y, string txt) =>
+    if on and not na(y)
+        array.push(labels_arr, label.new(bar_index + 2, y, txt, color = color.rgb(187, 187, 187, 43), textcolor = color.black, style = label.style_label_left, size = size.small))
+
+f_pushLbl(show_daily_high,         daily_high,         "Day High: " + str.tostring(daily_high, format.mintick))
+f_pushLbl(show_daily_low,          daily_low,          "Day Low: " + str.tostring(daily_low, format.mintick))
+f_pushLbl(show_opening_price,      opening_price,      "9:30 IST: " + str.tostring(opening_price, format.mintick))
+f_pushLbl(show_prev_opening_price, prev_opening_price, "Prev 9:30 IST: " + str.tostring(prev_opening_price, format.mintick))
+f_pushLbl(show_closing_price,      closing_price,      "15:30 IST: " + str.tostring(closing_price, format.mintick))
+f_pushLbl(show_prev_closing_price, prev_closing_price, "Prev 15:30 IST: " + str.tostring(prev_closing_price, format.mintick))
+// Fixed label text (original said "Prev 15:30 IST" for Mon-O)
+f_pushLbl(show_mon_open,     mon_o,         "Mon-O: " + str.tostring(mon_o, format.mintick))
+f_pushLbl(show_mon_close,    mon_c,         "Mon-C: " + str.tostring(mon_c, format.mintick))
+f_pushLbl(show_tue_open,     tue_o,         "Tue-O: " + str.tostring(tue_o, format.mintick))
+f_pushLbl(show_tue_close,    tue_c,         "Tue-C: " + str.tostring(tue_c, format.mintick))
+f_pushLbl(show_weekly_high,  weekly_high,   "Wk-H: " + str.tostring(weekly_high, format.mintick))
+f_pushLbl(show_weekly_low,   weekly_low,    "Wk-L: " + str.tostring(weekly_low, format.mintick))
+f_pushLbl(show_monthly_high, monthly_high,  "Mo-H: " + str.tostring(monthly_high, format.mintick))
+f_pushLbl(show_monthly_low,  monthly_low,   "Mo-L: " + str.tostring(monthly_low, format.mintick))
+
+plot(show_mon_open and not na(mon_o) ? mon_o : na, color = color.red, linewidth = 1)
+plot(show_mon_close and not na(mon_c) ? mon_c : na, color = color.green, linewidth = 1)
+plot(show_tue_open and not na(tue_o) ? tue_o : na, color = color.blue, linewidth = 1)
+plot(show_tue_close and not na(tue_c) ? tue_c : na, color = color.purple, linewidth = 1)
+plot(show_weekly_high and not na(weekly_high) ? weekly_high : na, color = color.yellow, linewidth = 1)
+plot(show_weekly_low and not na(weekly_low) ? weekly_low : na, color = color.orange, linewidth = 1)
+plot(show_monthly_high and not na(monthly_high) ? monthly_high : na, color = color.teal, linewidth = 1)
+plot(show_monthly_low and not na(monthly_low) ? monthly_low : na, color = color.fuchsia, linewidth = 1)
+
+// ═══════════════════════════ MON-C / TUE-C ZONE TABLE ═══════════════════════════
+current_price = close
+string condition_below   = str.tostring(close) + " < " + str.tostring(mon_c)
+string condition_between = str.tostring(mon_c) + " <= " + str.tostring(close) + " <= " + str.tostring(tue_c)
+string condition_above   = str.tostring(close) + " > " + str.tostring(tue_c)
+
+color color_below = na
+color color_between = na
+color color_above = na
+float diff_below = na
+float diff_between_1 = na
+float diff_between_2 = na
+float diff_above = na
+
+if current_price < mon_c
+    color_below := color.red
+    diff_below := mon_c - close
+if current_price >= mon_c and current_price <= tue_c
+    color_between := color.yellow
+    diff_between_1 := mon_c - current_price
+    diff_between_2 := tue_c - current_price
+if current_price > tue_c
+    color_above := color.green
+    diff_above := close - tue_c
+
+var table price_table = table.new(price_table_pos, 4, 4, bgcolor = bg_color, border_color = color.black, frame_color = color.black, frame_width = 2, border_width = 2)
+
+if show_price_table and (barstate.islast or barstate.islastconfirmedhistory)
+    table.cell(price_table, 0, 0, "Condition",       text_color = color.black, bgcolor = color.new(color.gray, 80), text_size = font_size)
+    table.cell(price_table, 1, 0, "Status",          text_color = color.black, bgcolor = color.new(color.gray, 80), text_size = font_size)
+    table.cell(price_table, 2, 0, "Color Code",      text_color = color.black, bgcolor = color.new(color.gray, 80), text_size = font_size)
+    table.cell(price_table, 3, 0, "Price Difference", text_color = color.black, bgcolor = color.new(color.gray, 80), text_size = font_size)
+
+    table.cell(price_table, 0, 1, condition_below, text_color = color.black, text_size = font_size)
+    table.cell(price_table, 1, 1, "Below Mon-C", text_color = color.black, text_size = font_size)
+    table.cell(price_table, 2, 1, current_price < mon_c ? "Red" : na, text_color = color.black, bgcolor = color_below, text_size = font_size)
+    table.cell(price_table, 3, 1, str.tostring(diff_below, format.mintick), text_color = color.black, text_size = font_size)
+
+    table.cell(price_table, 0, 2, condition_between, text_color = color.black, text_size = font_size)
+    table.cell(price_table, 1, 2, "Between Mon-C & Tue-C", text_color = color.black, text_size = font_size)
+    table.cell(price_table, 2, 2, current_price >= mon_c and current_price <= tue_c ? "Yellow" : na, text_color = color.black, bgcolor = color_between, text_size = font_size)
+    table.cell(price_table, 3, 2, str.tostring(diff_between_1, format.mintick) + " / " + str.tostring(diff_between_2, format.mintick), text_color = color.black, text_size = font_size)
+
+    table.cell(price_table, 0, 3, condition_above, text_color = color.black, text_size = font_size)
+    table.cell(price_table, 1, 3, "Above Tue-C", text_color = color.black, text_size = font_size)
+    table.cell(price_table, 2, 3, current_price > tue_c ? "Green" : na, text_color = color.black, bgcolor = color_above, text_size = font_size)
+    table.cell(price_table, 3, 3, str.tostring(diff_above, format.mintick), text_color = color.black, text_size = font_size)
+
+// ═══════════════════════════ WEEK / PREV-WEEK TABLES ═══════════════════════════
+var table weeklyTable = table.new(week_data_table_pos, 4, 6, bgcolor = bg_color, border_color = color.black, frame_color = color.black, frame_width = 2, border_width = 2)
+
+if show_week_data_table and (barstate.islast or barstate.islastconfirmedhistory)
+    table.cell(weeklyTable, 0, 0, "Day",          bgcolor = color.gray, text_color = color.white, text_size = font_size)
+    table.cell(weeklyTable, 1, 0, "Date",         bgcolor = color.gray, text_color = color.white, text_size = font_size)
+    table.cell(weeklyTable, 2, 0, "9:30 IST - O", bgcolor = color.gray, text_color = color.white, text_size = font_size)
+    table.cell(weeklyTable, 3, 0, "15:30 IST - C", bgcolor = color.gray, text_color = color.white, text_size = font_size)
+
+    table.cell(weeklyTable, 0, 1, "Mon", bgcolor = color.white, text_color = color.black, text_size = font_size)
+    table.cell(weeklyTable, 0, 2, "Tue", bgcolor = color.white, text_color = color.black, text_size = font_size)
+    table.cell(weeklyTable, 0, 3, "Wed", bgcolor = color.white, text_color = color.black, text_size = font_size)
+    table.cell(weeklyTable, 0, 4, "Thu", bgcolor = color.white, text_color = color.black, text_size = font_size)
+    table.cell(weeklyTable, 0, 5, "Fri", bgcolor = color.white, text_color = color.black, text_size = font_size)
+
+    table.cell(weeklyTable, 1, 1, str.format_time(in_mon_date, "yyyy-MM-dd", TZ_IST), text_size = font_size)
+    table.cell(weeklyTable, 2, 1, str.tostring(in_mon_open, "#.##"), text_size = font_size)
+    table.cell(weeklyTable, 3, 1, str.tostring(in_mon_close, "#.##"), text_size = font_size)
+    table.cell(weeklyTable, 1, 2, str.format_time(in_tue_date, "yyyy-MM-dd", TZ_IST), text_size = font_size)
+    table.cell(weeklyTable, 2, 2, str.tostring(in_tue_open, "#.##"), text_size = font_size)
+    table.cell(weeklyTable, 3, 2, str.tostring(in_tue_close, "#.##"), text_size = font_size)
+    table.cell(weeklyTable, 1, 3, str.format_time(in_wed_date, "yyyy-MM-dd", TZ_IST), text_size = font_size)
+    table.cell(weeklyTable, 2, 3, str.tostring(in_wed_open, "#.##"), text_size = font_size)
+    table.cell(weeklyTable, 3, 3, str.tostring(in_wed_close, "#.##"), text_size = font_size)
+    table.cell(weeklyTable, 1, 4, str.format_time(in_thu_date, "yyyy-MM-dd", TZ_IST), text_size = font_size)
+    table.cell(weeklyTable, 2, 4, str.tostring(in_thu_open, "#.##"), text_size = font_size)
+    table.cell(weeklyTable, 3, 4, str.tostring(in_thu_close, "#.##"), text_size = font_size)
+    table.cell(weeklyTable, 1, 5, str.format_time(in_fri_date, "yyyy-MM-dd", TZ_IST), text_size = font_size)
+    table.cell(weeklyTable, 2, 5, str.tostring(in_fri_open, "#.##"), text_size = font_size)
+    table.cell(weeklyTable, 3, 5, str.tostring(in_fri_close, "#.##"), text_size = font_size)
+
+var table prev_weeklyTable = table.new(prev_week_data_table_pos, 4, 6, bgcolor = bg_color, border_color = color.black, frame_color = color.black, frame_width = 2, border_width = 2)
+
+if show_prev_week_data_table and (barstate.islast or barstate.islastconfirmedhistory)
+    table.cell(prev_weeklyTable, 0, 0, "Day",          bgcolor = color.gray, text_color = color.white, text_size = font_size)
+    table.cell(prev_weeklyTable, 1, 0, "Date",         bgcolor = color.gray, text_color = color.white, text_size = font_size)
+    table.cell(prev_weeklyTable, 2, 0, "9:30 IST - O", bgcolor = color.gray, text_color = color.white, text_size = font_size)
+    table.cell(prev_weeklyTable, 3, 0, "15:30 IST - C", bgcolor = color.gray, text_color = color.white, text_size = font_size)
+
+    table.cell(prev_weeklyTable, 0, 1, "Pr. Mon", bgcolor = color.white, text_color = color.black, text_size = font_size)
+    table.cell(prev_weeklyTable, 0, 2, "Pr. Tue", bgcolor = color.white, text_color = color.black, text_size = font_size)
+    table.cell(prev_weeklyTable, 0, 3, "Pr. Wed", bgcolor = color.white, text_color = color.black, text_size = font_size)
+    table.cell(prev_weeklyTable, 0, 4, "Pr. Thu", bgcolor = color.white, text_color = color.black, text_size = font_size)
+    table.cell(prev_weeklyTable, 0, 5, "Pr. Fri", bgcolor = color.white, text_color = color.black, text_size = font_size)
+
+    table.cell(prev_weeklyTable, 1, 1, str.format_time(in_mon_date_prev, "yyyy-MM-dd", TZ_IST), text_size = font_size)
+    table.cell(prev_weeklyTable, 2, 1, str.tostring(in_mon_open_prev, "#.##"), text_size = font_size)
+    table.cell(prev_weeklyTable, 3, 1, str.tostring(in_mon_close_prev, "#.##"), text_size = font_size)
+    table.cell(prev_weeklyTable, 1, 2, str.format_time(in_tue_date_prev, "yyyy-MM-dd", TZ_IST), text_size = font_size)
+    table.cell(prev_weeklyTable, 2, 2, str.tostring(in_tue_open_prev, "#.##"), text_size = font_size)
+    table.cell(prev_weeklyTable, 3, 2, str.tostring(in_tue_close_prev, "#.##"), text_size = font_size)
+    table.cell(prev_weeklyTable, 1, 3, str.format_time(in_wed_date_prev, "yyyy-MM-dd", TZ_IST), text_size = font_size)
+    table.cell(prev_weeklyTable, 2, 3, str.tostring(in_wed_open_prev, "#.##"), text_size = font_size)
+    table.cell(prev_weeklyTable, 3, 3, str.tostring(in_wed_close_prev, "#.##"), text_size = font_size)
+    table.cell(prev_weeklyTable, 1, 4, str.format_time(in_thu_date_prev, "yyyy-MM-dd", TZ_IST), text_size = font_size)
+    table.cell(prev_weeklyTable, 2, 4, str.tostring(in_thu_open_prev, "#.##"), text_size = font_size)
+    table.cell(prev_weeklyTable, 3, 4, str.tostring(in_thu_close_prev, "#.##"), text_size = font_size)
+    table.cell(prev_weeklyTable, 1, 5, str.format_time(in_fri_date_prev, "yyyy-MM-dd", TZ_IST), text_size = font_size)
+    table.cell(prev_weeklyTable, 2, 5, str.tostring(in_fri_open_prev, "#.##"), text_size = font_size)
+    table.cell(prev_weeklyTable, 3, 5, str.tostring(in_fri_close_prev, "#.##"), text_size = font_size)
