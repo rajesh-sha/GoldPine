@@ -3,7 +3,7 @@
 // Same map/signals as the indicator, wired for TradingView Strategy Tester.
 // TRADE CLOCK = America/New_York · DISPLAY = Melbourne (table)
 // v6.8.4: CE10295 lean Strategy Tester — full trade logic; desk UI on indicator.
-// v6.8.3: Paste-safe reload + trade var types + table R div0 guard.
+// v6.8.3: Paste-safe reload + trade var types + table R div0 guard (bells unchanged).
 // v6.8.2: Full exchange-bell pack - Lon/US/Asia open + Lon/NYSE close magnets.
 // USE: OANDA:XAUUSD or TVC:GOLD, 1-minute. TESTER MODE ON by default (more trades).
 //
@@ -148,7 +148,7 @@ newsSess3    = input.session("1400-1430", "News 3 — FOMC slot (NY)", group = g
 newsSess4    = input.session("0830-1000", "News 4 — optional wide CPI (NY)", group = grpElite)
 useNews4     = input.bool(false, "Enable News window 4", group = grpElite)
 aPlusMode    = input.bool(false, "A+ ONLY mode (strict)", group = grpElite, tooltip = "ON: signal only when Draw + Nest + Killzone + (SMT or Judas) + Prem/Disc agree. Fewer trades, higher quality.")
-showEliteVis = input.bool(false, "Show elite visuals (draw / gaps / AMD)", group = grpElite)
+showEliteVis = input.bool(true, "Show elite visuals (draw / gaps / AMD)", group = grpElite)
 
 grpBias = "Higher-Timeframe Bias (4H always computed — filter optional)"
 biasMode = input.string("Show only (no veto)", "Bias Mode", options = ["EMA Filter", "Show only (no veto)", "Off (hide)"], group = grpBias, tooltip = "4H EMA is always calculated. 'Show only' = table shows UP/DOWN but does not block trades (best with Pure Liquidity). 'EMA Filter' = hard/soft veto by mode.")
@@ -230,8 +230,8 @@ adrCap      = input.float(1.0, "Range spent at x ADR", minval = 0.5, step = 0.1,
 grpVis = "Visuals / UX (same as before — tidy only)"
 useSimple      = input.bool(true, "Beginner mode: plain-English labels", group = grpVis)
 hiContrast     = input.bool(false, "Dark labels (optional)", group = grpVis, tooltip = "OFF = colored label pills with auto black/white text for contrast. ON = dark bg + white text on all.")
-showRoundLbs   = input.bool(false, "Show round-number labels", group = grpVis)
-pinLabels      = input.bool(false, "Pin level labels to right edge", group = grpVis)
+showRoundLbs   = input.bool(true, "Show round-number labels", group = grpVis)
+pinLabels      = input.bool(true, "Pin level labels to right edge", group = grpVis)
 pinOffset      = input.int(8, "Label base offset from last bar", minval = 0, group = grpVis)
 pinStagger     = input.int(55, "Horizontal stagger when close in price (bars)", minval = 10, group = grpVis)
 yNudgeATR      = input.float(0.70, "Vertical nudge when overlapping (ATR x)", minval = 0.0, step = 0.05, group = grpVis)
@@ -240,12 +240,12 @@ maxBump        = input.int(14, "Max stagger steps per cluster", minval = 3, maxv
 sigTZ          = input.string("Australia/Melbourne", "Display time zone (table + labels ONLY)", group = grpVis, tooltip = "Melbourne clock for YOU. Does NOT change killzones/news/day boundaries — those always use New York.")
 showStochLines = input.bool(true, "Draw StochRSI extreme lines (5m + 15m)", group = grpVis, tooltip = "Same tired-meter rails as before. Yellow = 15m overbought.")
 stochLineOff   = input.float(1.0, "StochRSI line distance (ATR x)", minval = 0.1, step = 0.1, group = grpVis)
-showTable      = input.bool(false, "Show status table", group = grpVis)
+showTable      = input.bool(true, "Show status table", group = grpVis)
 lightTable     = input.bool(true, "Light status table (v3.2 style)", group = grpVis)
-showBG         = input.bool(false, "Shade kill zones", group = grpVis)
+showBG         = input.bool(true, "Shade kill zones", group = grpVis)
 showFVGBox     = input.bool(true, "Draw pending FVG / OB zone", group = grpVis)
-showMSSMarks   = input.bool(false, "Mark MSS / CISD confirmations", group = grpVis)
-showRRBoxes    = input.bool(false, "Show LONG/SHORT risk-reward boxes", group = grpVis, tooltip = "Clean TV-style cards: green profit / red risk, one R:R pill. Details stay in the table.")
+showMSSMarks   = input.bool(true, "Mark MSS / CISD confirmations", group = grpVis)
+showRRBoxes    = input.bool(true, "Show LONG/SHORT risk-reward boxes", group = grpVis, tooltip = "Clean TV-style cards: green profit / red risk, one R:R pill. Details stay in the table.")
 rrBoxBars      = input.int(24, "RR box width (bars)", minval = 8, maxval = 80, group = grpVis)
 rrKeepN        = input.int(2, "Keep last N RR trades", minval = 1, maxval = 6, group = grpVis)
 showTradeLines = input.bool(false, "Also show old entry/SL/TP lines", group = grpVis)
@@ -1328,6 +1328,9 @@ string stayWhy = inNews ? (useSimple ? "News time — do not trade" : "News blac
 
 canSignal = signalsToday < maxSigDay and (bar_index - lastSigBar) >= coolB and not standAside and sbHourOK and kzSlotOK
 
+// ═══════════════════════════ INSTITUTIONAL PENDING STATE ═══════════════════════════
+// After a sweep, we do NOT fire immediately in PRO mode.
+// We wait for: CISD (optional arm) → MSS (required) → OB/FVG retest entry.
 var int   pendDir = 0          // +1 long, -1 short
 var int   pendBars = 0
 var float pendExtreme = na
@@ -1351,60 +1354,6 @@ var int   waitEntry = 0
 var int   zoneBorn = 0
 var box   zoneBox = na
 var float armSL = na
-var array<box>   rrBoxes = array.new_box()
-var array<line>  rrLines = array.new_line()
-var array<label> rrLabs  = array.new_label()
-var float lastEntry = na
-var float lastSL    = na
-var float lastTP1   = na
-var float lastTP2   = na
-var string lastTag  = ""
-var int   lastSigTime = na
-
-type PendSnap
-    int pendDir
-    int pendBars
-    float pendExtreme
-    float pendMSSLevel
-    bool pendMSS
-    bool pendCISD
-    string pendTag
-    string pendPool
-    float obTop
-    float obBot
-    float fvgTop
-    float fvgBot
-    float ceLevel
-    float oteHi
-    float oteLo
-    float ote62
-    float ote79
-    float brkTop
-    float brkBot
-    int waitEntry
-    int zoneBorn
-    box zoneBox
-    float armSL
-    array<box> rrBoxes
-    array<line> rrLines
-    array<label> rrLabs
-    float lastEntry
-    float lastSL
-    float lastTP1
-    float lastTP2
-    string lastTag
-    int lastSigTime
-    bool fireLong
-    bool fireShort
-    float slLong
-    float slShort
-    string tagLong
-    string tagShort
-    bool mssLongMark
-    bool mssShortMark
-    bool cisdLongMark
-    bool cisdShortMark
-    bool clearPend
 
 f_findBullOB() =>
     float top = na
@@ -1426,427 +1375,286 @@ f_findBearOB() =>
             break
     [top, bot]
 
+// Flag to clear pending state in global scope (Pine forbids := on globals inside functions)
+bool clearPend = false
 
-f_pendArm(PendSnap s) =>
-    int v_pendDir = s.pendDir
-    int v_pendBars = s.pendBars
-    float v_pendExtreme = s.pendExtreme
-    float v_pendMSSLevel = s.pendMSSLevel
-    bool v_pendMSS = s.pendMSS
-    bool v_pendCISD = s.pendCISD
-    string v_pendTag = s.pendTag
-    string v_pendPool = s.pendPool
-    float v_obTop = s.obTop
-    float v_obBot = s.obBot
-    float v_fvgTop = s.fvgTop
-    float v_fvgBot = s.fvgBot
-    float v_ceLevel = s.ceLevel
-    float v_oteHi = s.oteHi
-    float v_oteLo = s.oteLo
-    float v_ote62 = s.ote62
-    float v_ote79 = s.ote79
-    float v_brkTop = s.brkTop
-    float v_brkBot = s.brkBot
-    int v_waitEntry = s.waitEntry
-    int v_zoneBorn = s.zoneBorn
-    box v_zoneBox = s.zoneBox
-    float v_armSL = s.armSL
-    array<box> v_rrBoxes = rrBoxes
-    array<line> v_rrLines = rrLines
-    array<label> v_rrLabs = rrLabs
-    float v_lastEntry = lastEntry
-    float v_lastSL = lastSL
-    float v_lastTP1 = lastTP1
-    float v_lastTP2 = lastTP2
-    string v_lastTag = lastTag
-    int v_lastSigTime = lastSigTime
-    bool fireLong = false
-    bool fireShort = false
-    float slLong = na
-    float slShort = na
-    string tagLong = ""
-    string tagShort = ""
-    bool mssLongMark = false
-    bool mssShortMark = false
-    bool cisdLongMark = false
-    bool cisdShortMark = false
-    // ═══════════════════════════ INSTITUTIONAL PENDING STATE ═══════════════════════════
-    // After a sweep, we do NOT fire immediately in PRO mode.
-    // We wait for: CISD (optional arm) → MSS (required) → OB/FVG retest entry.
+// Raw reversal setups — liquidity/PA + elite gates + v6.1 complete playbook
+revLongSetup  = allowRev and anyBull and bullCndl and dispOK and gBiasL and gCorrL and sessionOK and gStochL and gPtjL and volOK and gradeOKL and hierOKL and nestOKL and premDiscLongOK and smtLongOK and drawLongOK and poiLongOK and amdLongOK and aPlusOKL and dailyLongOK and judasLongOK and dispLongOK and sbModelLongOK and (not hardF or qualityBull or minWickRatio <= 0)
+revShortSetup = allowRev and anyBear and bearCndl and dispOK and gBiasS and gCorrS and sessionOK and gStochS and gPtjS and volOK and gradeOKS and hierOKS and nestOKS and premDiscShortOK and smtShortOK and drawShortOK and poiShortOK and amdShortOK and aPlusOKS and dailyShortOK and judasShortOK and dispShortOK and sbModelShortOK and (not hardF or qualityBear or minWickRatio <= 0)
+contLongSig   = allowCont and contLong  and bullCndl and dispOK and gBiasL and gCorrL and sessionOK and gPtjL and volOK and gradeOKL and premDiscLongOK and not adrSpent and dailyLongOK and dispLongOK and sbModelLongOK and canSignal
+contShortSig  = allowCont and contShort and bearCndl and dispOK and gBiasS and gCorrS and sessionOK and gPtjS and volOK and gradeOKS and premDiscShortOK and not adrSpent and dailyShortOK and dispShortOK and sbModelShortOK and canSignal
 
-    // Flag to clear pending state in global scope (Pine forbids := on globals inside functions)
-    bool clearPend = false
+bool  fireLong  = false
+bool  fireShort = false
+float slLong    = na
+float slShort   = na
+string tagLong  = ""
+string tagShort = ""
+bool  mssLongMark = false
+bool  mssShortMark = false
+bool  cisdLongMark = false
+bool  cisdShortMark = false
 
-    // Raw reversal setups — liquidity/PA + elite gates + v6.1 complete playbook
-    revLongSetup  = allowRev and anyBull and bullCndl and dispOK and gBiasL and gCorrL and sessionOK and gStochL and gPtjL and volOK and gradeOKL and hierOKL and nestOKL and premDiscLongOK and smtLongOK and drawLongOK and poiLongOK and amdLongOK and aPlusOKL and dailyLongOK and judasLongOK and dispLongOK and sbModelLongOK and (not hardF or qualityBull or minWickRatio <= 0)
-    revShortSetup = allowRev and anyBear and bearCndl and dispOK and gBiasS and gCorrS and sessionOK and gStochS and gPtjS and volOK and gradeOKS and hierOKS and nestOKS and premDiscShortOK and smtShortOK and drawShortOK and poiShortOK and amdShortOK and aPlusOKS and dailyShortOK and judasShortOK and dispShortOK and sbModelShortOK and (not hardF or qualityBear or minWickRatio <= 0)
-    contLongSig   = allowCont and contLong  and bullCndl and dispOK and gBiasL and gCorrL and sessionOK and gPtjL and volOK and gradeOKL and premDiscLongOK and not adrSpent and dailyLongOK and dispLongOK and sbModelLongOK and canSignal
-    contShortSig  = allowCont and contShort and bearCndl and dispOK and gBiasS and gCorrS and sessionOK and gPtjS and volOK and gradeOKS and premDiscShortOK and not adrSpent and dailyShortOK and dispShortOK and sbModelShortOK and canSignal
+// ── Legacy reclaim entry ──
+if revLongSetup and reclaimMode and canSignal
+    fireLong := true
+    slLong   := sweepRefLong - slBufATR * atrVal
+    tagLong  := "Rev-Long " + gradeL
+if revShortSetup and reclaimMode and canSignal
+    fireShort := true
+    slShort   := sweepRefShort + slBufATR * atrVal
+    tagShort  := "Rev-Short " + gradeS
 
-    float slLong    = na
-    float slShort   = na
-    string tagLong  = ""
-    string tagShort = ""
-    bool  mssLongMark = false
-    bool  mssShortMark = false
-    bool  cisdLongMark = false
-    bool  cisdShortMark = false
+// ── Arm institutional pending on sweep (FVG or PRO modes) ──
+if revLongSetup and fvgMode and pendDir == 0
+    pendDir := 1
+    pendBars := mssWinB
+    pendExtreme := sweepRefLong
+    // MSS level = last swing high before/at the SSL sweep (structure that defined the run)
+    pendMSSLevel := na(swingHi) ? high[1] : swingHi
+    pendMSS := not useMSS
+    pendCISD := not useCISD
+    pendTag := gradeL
+    pendPool := sweptLongName
+    armSL := sweepRefLong - slBufATR * atrVal
+    if not proMode
+        pendBars := fvgFB
+    if proMode and useOB and pendMSS
+        [ot, ob] = f_findBullOB()
+        obTop := ot
+        obBot := ob
 
-    // ── Legacy reclaim entry ──
-    if revLongSetup and reclaimMode and canSignal
-        fireLong := true
-        slLong   := sweepRefLong - slBufATR * atrVal
-        tagLong  := "Rev-Long " + gradeL
-    if revShortSetup and reclaimMode and canSignal
-        fireShort := true
-        slShort   := sweepRefShort + slBufATR * atrVal
-        tagShort  := "Rev-Short " + gradeS
+if revShortSetup and fvgMode and pendDir == 0
+    pendDir := -1
+    pendBars := mssWinB
+    pendExtreme := sweepRefShort
+    pendMSSLevel := na(swingLo) ? low[1] : swingLo
+    pendMSS := not useMSS
+    pendCISD := not useCISD
+    pendTag := gradeS
+    pendPool := sweptShortName
+    armSL := sweepRefShort + slBufATR * atrVal
+    if not proMode
+        pendBars := fvgFB
+    if proMode and useOB and pendMSS
+        [ot, ob] = f_findBearOB()
+        obTop := ot
+        obBot := ob
 
-    // ── Arm institutional pending on sweep (FVG or PRO modes) ──
-    if revLongSetup and fvgMode and v_pendDir == 0
-        v_pendDir := 1
-        v_pendBars := mssWinB
-        v_pendExtreme := sweepRefLong
-        // MSS level = last swing high before/at the SSL sweep (structure that defined the run)
-        v_pendMSSLevel := na(swingHi) ? high[1] : swingHi
-        v_pendMSS := not useMSS
-        v_pendCISD := not useCISD
-        v_pendTag := gradeL
-        v_pendPool := sweptLongName
-        v_armSL := sweepRefLong - slBufATR * atrVal
-        if not proMode
-            v_pendBars := fvgFB
-        if proMode and useOB and v_pendMSS
-            [ot, ob] = f_findBullOB()
-            v_obTop := ot
-            v_obBot := ob
+// Track worst extreme for double-sweep protection while pending
+if pendDir == 1 and doubleSweep
+    pendExtreme := math.min(nz(pendExtreme, low), low)
+    armSL := pendExtreme - slBufATR * atrVal
+if pendDir == -1 and doubleSweep
+    pendExtreme := math.max(nz(pendExtreme, high), high)
+    armSL := pendExtreme + slBufATR * atrVal
 
-    if revShortSetup and fvgMode and v_pendDir == 0
-        v_pendDir := -1
-        v_pendBars := mssWinB
-        v_pendExtreme := sweepRefShort
-        v_pendMSSLevel := na(swingLo) ? low[1] : swingLo
-        v_pendMSS := not useMSS
-        v_pendCISD := not useCISD
-        v_pendTag := gradeS
-        v_pendPool := sweptShortName
-        v_armSL := sweepRefShort + slBufATR * atrVal
-        if not proMode
-            v_pendBars := fvgFB
-        if proMode and useOB and v_pendMSS
-            [ot, ob] = f_findBearOB()
-            v_obTop := ot
-            v_obBot := ob
+// CISD: first opposite-delivery close after sweep
+if pendDir == 1 and useCISD and not pendCISD and close > open and close > open[1]
+    pendCISD := true
+    cisdLongMark := true
+if pendDir == -1 and useCISD and not pendCISD and close < open and close < open[1]
+    pendCISD := true
+    cisdShortMark := true
 
-    // Track worst extreme for double-sweep protection while pending
-    if v_pendDir == 1 and doubleSweep
-        v_pendExtreme := math.min(nz(v_pendExtreme, low), low)
-        v_armSL := v_pendExtreme - slBufATR * atrVal
-    if v_pendDir == -1 and doubleSweep
-        v_pendExtreme := math.max(nz(v_pendExtreme, high), high)
-        v_armSL := v_pendExtreme + slBufATR * atrVal
+// MSS: body close through the protected swing
+if pendDir == 1 and useMSS and not pendMSS and not na(pendMSSLevel) and close > pendMSSLevel and close > open
+    pendMSS := true
+    mssLongMark := true
+    if useOB
+        [ot, ob] = f_findBullOB()
+        obTop := ot
+        obBot := ob
+    // OTE of bullish displacement: from sweep extreme (low) up to this MSS high
+    oteLo := pendExtreme
+    oteHi := high
+    float rngL = oteHi - oteLo
+    if rngL > 0
+        ote62 := oteHi - 0.62 * rngL
+        ote79 := oteHi - 0.79 * rngL
+    // Breaker = broken swing shelf
+    if useBreaker and not na(pendMSSLevel)
+        brkTop := pendMSSLevel + 0.15 * atrVal
+        brkBot := pendMSSLevel - 0.15 * atrVal
+if pendDir == -1 and useMSS and not pendMSS and not na(pendMSSLevel) and close < pendMSSLevel and close < open
+    pendMSS := true
+    mssShortMark := true
+    if useOB
+        [ot, ob] = f_findBearOB()
+        obTop := ot
+        obBot := ob
+    oteHi := pendExtreme
+    oteLo := low
+    float rngS = oteHi - oteLo
+    if rngS > 0
+        ote62 := oteLo + 0.62 * rngS
+        ote79 := oteLo + 0.79 * rngS
+    if useBreaker and not na(pendMSSLevel)
+        brkTop := pendMSSLevel + 0.15 * atrVal
+        brkBot := pendMSSLevel - 0.15 * atrVal
 
-    // CISD: first opposite-delivery close after sweep
-    if v_pendDir == 1 and useCISD and not v_pendCISD and close > open and close > open[1]
-        v_pendCISD := true
-        cisdLongMark := true
-    if v_pendDir == -1 and useCISD and not v_pendCISD and close < open and close < open[1]
-        v_pendCISD := true
-        cisdShortMark := true
-
-    // MSS: body close through the protected swing
-    if v_pendDir == 1 and useMSS and not v_pendMSS and not na(v_pendMSSLevel) and close > v_pendMSSLevel and close > open
-        v_pendMSS := true
-        mssLongMark := true
-        if useOB
-            [ot, ob] = f_findBullOB()
-            v_obTop := ot
-            v_obBot := ob
-        // OTE of bullish displacement: from sweep extreme (low) up to this MSS high
-        v_oteLo := v_pendExtreme
-        v_oteHi := high
-        float rngL = v_oteHi - v_oteLo
-        if rngL > 0
-            v_ote62 := v_oteHi - 0.62 * rngL
-            v_ote79 := v_oteHi - 0.79 * rngL
-        // Breaker = broken swing shelf
-        if useBreaker and not na(v_pendMSSLevel)
-            v_brkTop := v_pendMSSLevel + 0.15 * atrVal
-            v_brkBot := v_pendMSSLevel - 0.15 * atrVal
-    if v_pendDir == -1 and useMSS and not v_pendMSS and not na(v_pendMSSLevel) and close < v_pendMSSLevel and close < open
-        v_pendMSS := true
-        mssShortMark := true
-        if useOB
-            [ot, ob] = f_findBearOB()
-            v_obTop := ot
-            v_obBot := ob
-        v_oteHi := v_pendExtreme
-        v_oteLo := low
-        float rngS = v_oteHi - v_oteLo
-        if rngS > 0
-            v_ote62 := v_oteLo + 0.62 * rngS
-            v_ote79 := v_oteLo + 0.79 * rngS
-        if useBreaker and not na(v_pendMSSLevel)
-            v_brkTop := v_pendMSSLevel + 0.15 * atrVal
-            v_brkBot := v_pendMSSLevel - 0.15 * atrVal
-
-    // In classic FVG mode (non-PRO): form FVG during arm window without MSS gate
-    if v_pendDir != 0 and not proMode and v_waitEntry == 0
-        if v_pendDir == 1
-            if low > high[2]
-                v_fvgBot := high[2]
-                v_fvgTop := low
-                v_waitEntry := fvgWB
-                v_zoneBorn := bar_index
-                if showFVGBox
-                    v_zoneBox := box.new(bar_index - 2, v_fvgTop, bar_index + fvgWB, v_fvgBot, border_color = color.green, bgcolor = color.new(color.green, 88))
-                v_pendBars := 0
-            else
-                v_pendBars -= 1
-                if v_pendBars <= 0
-                    clearPend := true
-        else
-            if high < low[2]
-                v_fvgTop := low[2]
-                v_fvgBot := high
-                v_waitEntry := fvgWB
-                v_zoneBorn := bar_index
-                if showFVGBox
-                    v_zoneBox := box.new(bar_index - 2, v_fvgTop, bar_index + fvgWB, v_fvgBot, border_color = color.red, bgcolor = color.new(color.red, 88))
-                v_pendBars := 0
-            else
-                v_pendBars -= 1
-                if v_pendBars <= 0
-                    clearPend := true
-
-    // PRO mode: after MSS, build FVG / OB / Breaker entry zone (+ CE)
-    if v_pendDir != 0 and proMode and v_pendMSS and v_waitEntry == 0
-        bool zoneReady = false
-        if v_pendDir == 1
-            if low > high[2]
-                v_fvgBot := high[2]
-                v_fvgTop := low
-                zoneReady := true
-            else if useOB and not na(v_obTop)
-                v_fvgTop := v_obTop
-                v_fvgBot := v_obBot
-                zoneReady := true
-            else if useBreaker and not na(v_brkTop)
-                v_fvgTop := v_brkTop
-                v_fvgBot := v_brkBot
-                zoneReady := true
-        else
-            if high < low[2]
-                v_fvgTop := low[2]
-                v_fvgBot := high
-                zoneReady := true
-            else if useOB and not na(v_obTop)
-                v_fvgTop := v_obTop
-                v_fvgBot := v_obBot
-                zoneReady := true
-            else if useBreaker and not na(v_brkTop)
-                v_fvgTop := v_brkTop
-                v_fvgBot := v_brkBot
-                zoneReady := true
-        if zoneReady
-            v_ceLevel := (v_fvgTop + v_fvgBot) / 2.0
-            v_waitEntry := fvgWB
-            v_zoneBorn := bar_index
-            bool uniZone = useUnicorn and not na(v_brkTop) and not na(v_brkBot) and v_fvgBot <= v_brkTop and v_fvgTop >= v_brkBot
+// In classic FVG mode (non-PRO): form FVG during arm window without MSS gate
+if pendDir != 0 and not proMode and waitEntry == 0
+    if pendDir == 1
+        if low > high[2]
+            fvgBot := high[2]
+            fvgTop := low
+            waitEntry := fvgWB
+            zoneBorn := bar_index
             if showFVGBox
-                if v_pendDir == 1
-                    v_zoneBox := box.new(bar_index - 2, v_fvgTop, bar_index + fvgWB, v_fvgBot, border_color = color.green, bgcolor = color.new(color.green, 88), text = useSimple ? (uniZone ? "BUY ZONE (best)" : "BUY ZONE — enter on dip") : (uniZone ? "BUY UNICORN" : "BUY CE/OB/FVG"), text_color = color.green)
-                else
-                    v_zoneBox := box.new(bar_index - 2, v_fvgTop, bar_index + fvgWB, v_fvgBot, border_color = color.red, bgcolor = color.new(color.red, 88), text = useSimple ? (uniZone ? "SELL ZONE (best)" : "SELL ZONE — enter on rise") : (uniZone ? "SELL UNICORN" : "SELL CE/OB/FVG"), text_color = color.red)
-            v_pendBars := 0
+                zoneBox := box.new(bar_index - 2, fvgTop, bar_index + fvgWB, fvgBot, border_color = color.green, bgcolor = color.new(color.green, 88))
+            pendBars := 0
         else
-            v_pendBars -= 1
-            if v_pendBars <= 0
+            pendBars -= 1
+            if pendBars <= 0
+                clearPend := true
+    else
+        if high < low[2]
+            fvgTop := low[2]
+            fvgBot := high
+            waitEntry := fvgWB
+            zoneBorn := bar_index
+            if showFVGBox
+                zoneBox := box.new(bar_index - 2, fvgTop, bar_index + fvgWB, fvgBot, border_color = color.red, bgcolor = color.new(color.red, 88))
+            pendBars := 0
+        else
+            pendBars -= 1
+            if pendBars <= 0
                 clearPend := true
 
-    // Expire pending if MSS never prints
-    s.pendDir := v_pendDir
-    s.pendBars := v_pendBars
-    s.pendExtreme := v_pendExtreme
-    s.pendMSSLevel := v_pendMSSLevel
-    s.pendMSS := v_pendMSS
-    s.pendCISD := v_pendCISD
-    s.pendTag := v_pendTag
-    s.pendPool := v_pendPool
-    s.obTop := v_obTop
-    s.obBot := v_obBot
-    s.fvgTop := v_fvgTop
-    s.fvgBot := v_fvgBot
-    s.ceLevel := v_ceLevel
-    s.oteHi := v_oteHi
-    s.oteLo := v_oteLo
-    s.ote62 := v_ote62
-    s.ote79 := v_ote79
-    s.brkTop := v_brkTop
-    s.brkBot := v_brkBot
-    s.waitEntry := v_waitEntry
-    s.zoneBorn := v_zoneBorn
-    s.zoneBox := v_zoneBox
-    s.armSL := v_armSL
-    s.tagShort := tagShort
-    s.slShort := slShort
-    s.tagLong := tagLong
-    s.fireLong := fireLong
-    s.fireShort := fireShort
-    s.slLong := slLong
-    s.clearPend := clearPend
-    s
-
-f_pendFire(PendSnap s) =>
-    int v_pendDir = s.pendDir
-    int v_pendBars = s.pendBars
-    float v_pendExtreme = s.pendExtreme
-    float v_pendMSSLevel = s.pendMSSLevel
-    bool v_pendMSS = s.pendMSS
-    bool v_pendCISD = s.pendCISD
-    string v_pendTag = s.pendTag
-    string v_pendPool = s.pendPool
-    float v_obTop = s.obTop
-    float v_obBot = s.obBot
-    float v_fvgTop = s.fvgTop
-    float v_fvgBot = s.fvgBot
-    float v_ceLevel = s.ceLevel
-    float v_oteHi = s.oteHi
-    float v_oteLo = s.oteLo
-    float v_ote62 = s.ote62
-    float v_ote79 = s.ote79
-    float v_brkTop = s.brkTop
-    float v_brkBot = s.brkBot
-    int v_waitEntry = s.waitEntry
-    int v_zoneBorn = s.zoneBorn
-    box v_zoneBox = s.zoneBox
-    float v_armSL = s.armSL
-    string tagShort = s.tagShort
-    float slShort = s.slShort
-    string tagLong = s.tagLong
-    bool fireLong = s.fireLong
-    bool fireShort = s.fireShort
-    float slLong = s.slLong
-    bool clearPend = s.clearPend
-    if v_pendDir != 0 and proMode and not v_pendMSS and v_waitEntry == 0
-        v_pendBars -= 1
-        if v_pendBars <= 0
+// PRO mode: after MSS, build FVG / OB / Breaker entry zone (+ CE)
+if pendDir != 0 and proMode and pendMSS and waitEntry == 0
+    bool zoneReady = false
+    if pendDir == 1
+        if low > high[2]
+            fvgBot := high[2]
+            fvgTop := low
+            zoneReady := true
+        else if useOB and not na(obTop)
+            fvgTop := obTop
+            fvgBot := obBot
+            zoneReady := true
+        else if useBreaker and not na(brkTop)
+            fvgTop := brkTop
+            fvgBot := brkBot
+            zoneReady := true
+    else
+        if high < low[2]
+            fvgTop := low[2]
+            fvgBot := high
+            zoneReady := true
+        else if useOB and not na(obTop)
+            fvgTop := obTop
+            fvgBot := obBot
+            zoneReady := true
+        else if useBreaker and not na(brkTop)
+            fvgTop := brkTop
+            fvgBot := brkBot
+            zoneReady := true
+    if zoneReady
+        ceLevel := (fvgTop + fvgBot) / 2.0
+        waitEntry := fvgWB
+        zoneBorn := bar_index
+        bool uniZone = useUnicorn and not na(brkTop) and not na(brkBot) and fvgBot <= brkTop and fvgTop >= brkBot
+        if showFVGBox
+            if pendDir == 1
+                zoneBox := box.new(bar_index - 2, fvgTop, bar_index + fvgWB, fvgBot, border_color = color.green, bgcolor = color.new(color.green, 88), text = useSimple ? (uniZone ? "BUY ZONE (best)" : "BUY ZONE — enter on dip") : (uniZone ? "BUY UNICORN" : "BUY CE/OB/FVG"), text_color = color.green)
+            else
+                zoneBox := box.new(bar_index - 2, fvgTop, bar_index + fvgWB, fvgBot, border_color = color.red, bgcolor = color.new(color.red, 88), text = useSimple ? (uniZone ? "SELL ZONE (best)" : "SELL ZONE — enter on rise") : (uniZone ? "SELL UNICORN" : "SELL CE/OB/FVG"), text_color = color.red)
+        pendBars := 0
+    else
+        pendBars -= 1
+        if pendBars <= 0
             clearPend := true
 
-    // Retest entry: CE (50%) preferred, else zone edge; OTE filter when armed
-    bool oteLongOK = not useOTE or na(v_ote62) or na(v_ote79) or ((low <= v_ote62 and high >= v_ote79) or (close <= v_ote62 and close >= v_ote79))
-    bool oteShortOK = not useOTE or na(v_ote62) or na(v_ote79) or ((high >= v_ote62 and low <= v_ote79) or (close >= v_ote62 and close <= v_ote79))
+// Expire pending if MSS never prints
+if pendDir != 0 and proMode and not pendMSS and waitEntry == 0
+    pendBars -= 1
+    if pendBars <= 0
+        clearPend := true
 
-    if v_waitEntry > 0
-        if v_pendDir == 1
-            float touchL = useCE and not na(v_ceLevel) ? v_ceLevel : v_fvgTop
-            if close < v_armSL
-                clearPend := true
-            else if bar_index > v_zoneBorn and low <= touchL and oteLongOK and canSignal and (not proMode or v_pendMSS)
-                fireLong := true
-                slLong   := v_armSL
-                bool uniL = useUnicorn and not na(v_brkTop) and not na(v_brkBot) and not na(v_fvgTop) and v_fvgBot <= v_brkTop and v_fvgTop >= v_brkBot
-                tagLong  := (proMode ? "PRO-Long " : "FVG-Long ") + v_pendTag + (v_pendPool != "" ? " " + v_pendPool : "") + (smtBullRaw ? " SMT" : "") + (uniL ? " UNI" : "") + (inBullIFVG ? " IFVG" : "") + (aPlusLong ? " A+" : "")
-                clearPend := true
-            else
-                v_waitEntry -= 1
-                if v_waitEntry == 0
-                    clearPend := true
-        else if v_pendDir == -1
-            float touchS = useCE and not na(v_ceLevel) ? v_ceLevel : v_fvgBot
-            if close > v_armSL
-                clearPend := true
-            else if bar_index > v_zoneBorn and high >= touchS and oteShortOK and canSignal and (not proMode or v_pendMSS)
-                fireShort := true
-                slShort   := v_armSL
-                bool uniS = useUnicorn and not na(v_brkTop) and not na(v_brkBot) and not na(v_fvgTop) and v_fvgBot <= v_brkTop and v_fvgTop >= v_brkBot
-                tagShort  := (proMode ? "PRO-Short " : "FVG-Short ") + v_pendTag + (v_pendPool != "" ? " " + v_pendPool : "") + (smtBearRaw ? " SMT" : "") + (uniS ? " UNI" : "") + (inBearIFVG ? " IFVG" : "") + (aPlusShort ? " A+" : "")
-                clearPend := true
-            else
-                v_waitEntry -= 1
-                if v_waitEntry == 0
-                    clearPend := true
+// Retest entry: CE (50%) preferred, else zone edge; OTE filter when armed
+bool oteLongOK = not useOTE or na(ote62) or na(ote79) or ((low <= ote62 and high >= ote79) or (close <= ote62 and close >= ote79))
+bool oteShortOK = not useOTE or na(ote62) or na(ote79) or ((high >= ote62 and low <= ote79) or (close >= ote62 and close <= ote79))
 
-    // Apply pending reset in global scope (required by Pine CE10088)
-    if clearPend
-        v_pendDir := 0
-        v_pendBars := 0
-        v_pendExtreme := na
-        v_pendMSSLevel := na
-        v_pendMSS := false
-        v_pendCISD := false
-        v_pendTag := ""
-        v_pendPool := ""
-        v_obTop := na
-        v_obBot := na
-        v_fvgTop := na
-        v_fvgBot := na
-        v_ceLevel := na
-        v_oteHi := na
-        v_oteLo := na
-        v_ote62 := na
-        v_ote79 := na
-        v_brkTop := na
-        v_brkBot := na
-        v_waitEntry := 0
-        v_zoneBorn := 0
-        v_armSL := na
-        if not na(v_zoneBox)
-            box.delete(v_zoneBox)
-            v_zoneBox := na
-
-    // Continuation still fires immediately (acceptance = real breakout)
-    if contLongSig and not fireLong
-        fireLong := true
-        slLong   := contLongBase - slBufATR * atrVal
-        tagLong  := "Cont-Long " + gradeL
-    if contShortSig and not fireShort
-        fireShort := true
-        slShort   := contShortBase + slBufATR * atrVal
-        tagShort  := "Cont-Short " + gradeS
-
-    // TESTER fallback: session + liquidity sweep reclaim (produces Strategy Tester trades)
-    if testerLoose and canSignal and sessionOK and strategy.position_size == 0
-        if not fireLong and not fireShort and anyBull and bullCndl and close > open and (not usePremDisc or inDiscount or not effReqDaily)
+if waitEntry > 0
+    if pendDir == 1
+        float touchL = useCE and not na(ceLevel) ? ceLevel : fvgTop
+        if close < armSL
+            clearPend := true
+        else if bar_index > zoneBorn and low <= touchL and oteLongOK and canSignal and (not proMode or pendMSS)
             fireLong := true
-            slLong := (na(v_armSL) ? low : math.min(low, v_armSL)) - slBufATR * atrVal
-            tagLong := "Tester BUY " + (sweptLongName != "" ? sweptLongName : "sweep")
-        else if not fireLong and not fireShort and anyBear and bearCndl and close < open and (not usePremDisc or inPremium or not effReqDaily)
+            slLong   := armSL
+            bool uniL = useUnicorn and not na(brkTop) and not na(brkBot) and not na(fvgTop) and fvgBot <= brkTop and fvgTop >= brkBot
+            tagLong  := (proMode ? "PRO-Long " : "FVG-Long ") + pendTag + (pendPool != "" ? " " + pendPool : "") + (smtBullRaw ? " SMT" : "") + (uniL ? " UNI" : "") + (inBullIFVG ? " IFVG" : "") + (aPlusLong ? " A+" : "")
+            clearPend := true
+        else
+            waitEntry -= 1
+            if waitEntry == 0
+                clearPend := true
+    else if pendDir == -1
+        float touchS = useCE and not na(ceLevel) ? ceLevel : fvgBot
+        if close > armSL
+            clearPend := true
+        else if bar_index > zoneBorn and high >= touchS and oteShortOK and canSignal and (not proMode or pendMSS)
             fireShort := true
-            slShort := (na(v_armSL) ? high : math.max(high, v_armSL)) + slBufATR * atrVal
-            tagShort := "Tester SELL " + (sweptShortName != "" ? sweptShortName : "sweep")
+            slShort   := armSL
+            bool uniS = useUnicorn and not na(brkTop) and not na(brkBot) and not na(fvgTop) and fvgBot <= brkTop and fvgTop >= brkBot
+            tagShort  := (proMode ? "PRO-Short " : "FVG-Short ") + pendTag + (pendPool != "" ? " " + pendPool : "") + (smtBearRaw ? " SMT" : "") + (uniS ? " UNI" : "") + (inBearIFVG ? " IFVG" : "") + (aPlusShort ? " A+" : "")
+            clearPend := true
+        else
+            waitEntry -= 1
+            if waitEntry == 0
+                clearPend := true
 
-    s.pendDir := v_pendDir
-    s.pendBars := v_pendBars
-    s.pendExtreme := v_pendExtreme
-    s.pendMSSLevel := v_pendMSSLevel
-    s.pendMSS := v_pendMSS
-    s.pendCISD := v_pendCISD
-    s.pendTag := v_pendTag
-    s.pendPool := v_pendPool
-    s.obTop := v_obTop
-    s.obBot := v_obBot
-    s.fvgTop := v_fvgTop
-    s.fvgBot := v_fvgBot
-    s.ceLevel := v_ceLevel
-    s.oteHi := v_oteHi
-    s.oteLo := v_oteLo
-    s.ote62 := v_ote62
-    s.ote79 := v_ote79
-    s.brkTop := v_brkTop
-    s.brkBot := v_brkBot
-    s.waitEntry := v_waitEntry
-    s.zoneBorn := v_zoneBorn
-    s.zoneBox := v_zoneBox
-    s.armSL := v_armSL
-    s.tagShort := tagShort
-    s.slShort := slShort
-    s.tagLong := tagLong
-    s.fireLong := fireLong
-    s.fireShort := fireShort
-    s.slLong := slLong
-    s.clearPend := clearPend
-    s
+// Apply pending reset in global scope (required by Pine CE10088)
+if clearPend
+    pendDir := 0
+    pendBars := 0
+    pendExtreme := na
+    pendMSSLevel := na
+    pendMSS := false
+    pendCISD := false
+    pendTag := ""
+    pendPool := ""
+    obTop := na
+    obBot := na
+    fvgTop := na
+    fvgBot := na
+    ceLevel := na
+    oteHi := na
+    oteLo := na
+    ote62 := na
+    ote79 := na
+    brkTop := na
+    brkBot := na
+    waitEntry := 0
+    zoneBorn := 0
+    armSL := na
+    if not na(zoneBox)
+        box.delete(zoneBox)
+        zoneBox := na
+
+// Continuation still fires immediately (acceptance = real breakout)
+if contLongSig and not fireLong
+    fireLong := true
+    slLong   := contLongBase - slBufATR * atrVal
+    tagLong  := "Cont-Long " + gradeL
+if contShortSig and not fireShort
+    fireShort := true
+    slShort   := contShortBase + slBufATR * atrVal
+    tagShort  := "Cont-Short " + gradeS
+
+// TESTER fallback: session + liquidity sweep reclaim (produces Strategy Tester trades)
+if testerLoose and canSignal and sessionOK and strategy.position_size == 0
+    if not fireLong and not fireShort and anyBull and bullCndl and close > open and (not usePremDisc or inDiscount or not effReqDaily)
+        fireLong := true
+        slLong := (na(armSL) ? low : math.min(low, armSL)) - slBufATR * atrVal
+        tagLong := "Tester BUY " + (sweptLongName != "" ? sweptLongName : "sweep")
+    else if not fireLong and not fireShort and anyBear and bearCndl and close < open and (not usePremDisc or inPremium or not effReqDaily)
+        fireShort := true
+        slShort := (na(armSL) ? high : math.max(high, armSL)) + slBufATR * atrVal
+        tagShort := "Tester SELL " + (sweptShortName != "" ? sweptShortName : "sweep")
 
 // ═══════════════════════════ TARGET HELPERS ═══════════════════════════
 f_bestAbove(array<LiqLevel> arr, float curBest) =>
@@ -1928,17 +1736,20 @@ f_oppShort() =>
 
 // ═══════════════════════════ SIGNAL OUTPUT ═══════════════════════════
 // Clean RR cards — TV long/short look, almost no text (table holds details)
+var array<box>   rrBoxes = array.new_box()
+var array<line>  rrLines = array.new_line()
+var array<label> rrLabs  = array.new_label()
 
 f_rrPrune() =>
     int maxB = rrKeepN * 2
     int maxL = rrKeepN * 2
     int maxLb = rrKeepN
-    while array.size(v_rrBoxes) > maxB
-        box.delete(array.shift(v_rrBoxes))
-    while array.size(v_rrLines) > maxL
-        line.delete(array.shift(v_rrLines))
-    while array.size(v_rrLabs) > maxLb
-        label.delete(array.shift(v_rrLabs))
+    while array.size(rrBoxes) > maxB
+        box.delete(array.shift(rrBoxes))
+    while array.size(rrLines) > maxL
+        line.delete(array.shift(rrLines))
+    while array.size(rrLabs) > maxLb
+        label.delete(array.shift(rrLabs))
 
 f_drawTrade(isLong, entryP, slP, tp1P, tp2P, qtyTxt, tag, timeTxt) =>
     int x1 = bar_index
@@ -1964,22 +1775,22 @@ f_drawTrade(isLong, entryP, slP, tp1P, tp2P, qtyTxt, tag, timeTxt) =>
             bRisk := box.new(x1, entryP, x2, slP, bgcolor = riskBg, border_color = riskBd, border_width = 1)
             // Teal stem under risk (TV cue)
             line stem = line.new(xMid, entryP, xMid, slP - risk * 0.25, color = color.new(color.rgb(38, 166, 154), 30), width = 2)
-            array.push(v_rrLines, stem)
+            array.push(rrLines, stem)
         else
             // SHORT card: risk ABOVE, profit BELOW (TV Short Position)
             bRisk := box.new(x1, slP, x2, entryP, bgcolor = riskBg, border_color = riskBd, border_width = 1)
             bWin  := box.new(x1, entryP, x2, tpShow, bgcolor = winBg, border_color = winBd, border_width = 1)
             line stem = line.new(xMid, slP, xMid, tpShow, color = color.new(color.gray, 50), width = 1, style = line.style_dashed)
-            array.push(v_rrLines, stem)
-        array.push(v_rrBoxes, bWin)
-        array.push(v_rrBoxes, bRisk)
+            array.push(rrLines, stem)
+        array.push(rrBoxes, bWin)
+        array.push(rrBoxes, bRisk)
         // Entry seam only
         line eLn = line.new(x1, entryP, x2, entryP, color = color.new(color.rgb(55, 71, 79), 25), width = 1)
-        array.push(v_rrLines, eLn)
+        array.push(rrLines, eLn)
         // ONE mid pill — no Target/Stop/Amount/Qty clutter (those live in table)
         string pill = (isLong ? "BUY " : "SELL ") + str.tostring(rr, "#.#") + "R"
         label lb = label.new(x2, entryP, pill, style = label.style_label_left, color = isLong ? color.new(color.rgb(38, 166, 154), 15) : color.new(color.rgb(239, 83, 80), 15), textcolor = color.white, size = size.tiny)
-        array.push(v_rrLabs, lb)
+        array.push(rrLabs, lb)
         f_rrPrune()
 
     if showTradeLines or not showRRBoxes
@@ -1992,236 +1803,109 @@ f_drawTrade(isLong, entryP, slP, tp1P, tp2P, qtyTxt, tag, timeTxt) =>
         line.new(bar_index, tp2P, bar_index + lineExt, tp2P, color = color.teal, width = 2)
         label.new(bar_index + lineExt, tp2P, "TP2: " + str.tostring(tp2P, format.mintick) + (useSimple ? " - final cash-out" : ""), color = color.teal, textcolor = color.white, style = label.style_label_left, size = size.small)
 
+var float lastEntry = na
+var float lastSL    = na
+var float lastTP1   = na
+var float lastTP2   = na
+var string lastTag  = ""
+var int   lastSigTime = na
 
 // Typed once (avoids undeclared-series edge cases in Pine compiler)
-s.pendDir := v_pendDir
-s.pendBars := v_pendBars
-s.pendExtreme := v_pendExtreme
-s.pendMSSLevel := v_pendMSSLevel
-s.pendMSS := v_pendMSS
-s.pendCISD := v_pendCISD
-s.pendTag := v_pendTag
-s.pendPool := v_pendPool
-s.obTop := v_obTop
-s.obBot := v_obBot
-s.fvgTop := v_fvgTop
-s.fvgBot := v_fvgBot
-s.ceLevel := v_ceLevel
-s.oteHi := v_oteHi
-s.oteLo := v_oteLo
-s.ote62 := v_ote62
-s.ote79 := v_ote79
-s.brkTop := v_brkTop
-s.brkBot := v_brkBot
-s.waitEntry := v_waitEntry
-s.zoneBorn := v_zoneBorn
-s.zoneBox := v_zoneBox
-s.armSL := v_armSL
-s
+float dist = na
+float opp = na
+float tp1 = na
+float tp2 = na
+float qty = na
+string qtyTxt = ""
+string sigTimeTxt = ""
 
-f_runPendingAndFire() =>
-    PendSnap s = PendSnap.new()
-    s.pendDir := pendDir
-    s.pendBars := pendBars
-    s.pendExtreme := pendExtreme
-    s.pendMSSLevel := pendMSSLevel
-    s.pendMSS := pendMSS
-    s.pendCISD := pendCISD
-    s.pendTag := pendTag
-    s.pendPool := pendPool
-    s.obTop := obTop
-    s.obBot := obBot
-    s.fvgTop := fvgTop
-    s.fvgBot := fvgBot
-    s.ceLevel := ceLevel
-    s.oteHi := oteHi
-    s.oteLo := oteLo
-    s.ote62 := ote62
-    s.ote79 := ote79
-    s.brkTop := brkTop
-    s.brkBot := brkBot
-    s.waitEntry := waitEntry
-    s.zoneBorn := zoneBorn
-    s.zoneBox := zoneBox
-    s.armSL := armSL
-    s := f_pendArm(s)
-    s := f_pendFire(s)
-    s
+if fireLong
+    dist := close - slLong
+    if dist > 0
+        opp := f_oppLong()
+        // v6.1 TP1: Asia opposite → else -0.27 expansion → else R multiple
+        float asiaRngL = not na(asiaH) and not na(asiaL) and asiaH > asiaL ? asiaH - asiaL : na
+        float fib027L = not na(asiaRngL) ? asiaH + asiaRngL * 0.272 : na
+        tp1 := tp1AsiaOpp and not na(asiaH) and asiaH > close ? asiaH : tp1Fib027 and not na(fib027L) and fib027L > close ? fib027L : close + dist * rr1
+        // TP2 runner: draw/PDH liquidity preferred
+        float runL = not na(drawBSL) ? drawBSL : opp
+        tp2 := tp2Mode == "Opposite liquidity level" and not na(runL) and runL > close + dist ? runL : close + dist * rr2
+        if not effUseRR2 or (tp2 - close) >= minRR2 * dist
+            float riskBaseL = qtyMode == "Risk % of equity" ? strategy.equity : accountSize
+            qty := qtyMode == "Fixed size" ? fixedQty : math.max(minQty, math.min(maxQty, (riskBaseL * riskPct / 100) / dist))
+            qtyTxt := str.tostring(qty, "#.##")
+            sigTimeTxt := str.format_time(time, "dd MMM HH:mm", sigTZ)
+            f_drawTrade(true, close, slLong, tp1, tp2, qtyTxt, tagLong, sigTimeTxt)
+            if useStrategyOrders and qty > 0 and strategy.position_size <= 0
+                if closeOpposite and strategy.position_size < 0
+                    strategy.close("SELL", comment = "flip to BUY")
+                strategy.entry("BUY", strategy.long, qty = qty, comment = tagLong)
+                if usePartialTP
+                    strategy.exit("BUY-TP1", from_entry = "BUY", qty_percent = 50, limit = tp1, stop = slLong, comment = "TP1")
+                    strategy.exit("BUY-TP2", from_entry = "BUY", limit = tp2, stop = slLong, comment = "TP2")
+                else
+                    strategy.exit("BUY-X", from_entry = "BUY", limit = tp1, stop = slLong, comment = "TP1")
+            alert("GOLD BUY [" + tagLong + "] " + sigTimeTxt + " Entry " + str.tostring(close, format.mintick) + " | SL " + str.tostring(slLong, format.mintick) + " | TP1 " + str.tostring(tp1, format.mintick) + " | TP2 " + str.tostring(tp2, format.mintick) + " | Size " + qtyTxt + " | At TP1: take half + move SL to entry", alert.freq_once_per_bar_close)
+            lastEntry := close
+            lastSL := slLong
+            lastTP1 := tp1
+            lastTP2 := tp2
+            lastTag := tagLong
+            lastSigTime := time
+            signalsToday += 1
+            lastSigBar := bar_index
+            if kzBlock != 0
+                tradedKZBlock := kzBlock
 
-PendSnap ps = f_runPendingAndFire()
-pendDir := ps.pendDir
-pendBars := ps.pendBars
-pendExtreme := ps.pendExtreme
-pendMSSLevel := ps.pendMSSLevel
-pendMSS := ps.pendMSS
-pendCISD := ps.pendCISD
-pendTag := ps.pendTag
-pendPool := ps.pendPool
-obTop := ps.obTop
-obBot := ps.obBot
-fvgTop := ps.fvgTop
-fvgBot := ps.fvgBot
-ceLevel := ps.ceLevel
-oteHi := ps.oteHi
-oteLo := ps.oteLo
-ote62 := ps.ote62
-ote79 := ps.ote79
-brkTop := ps.brkTop
-brkBot := ps.brkBot
-waitEntry := ps.waitEntry
-zoneBorn := ps.zoneBorn
-zoneBox := ps.zoneBox
-armSL := ps.armSL
-rrBoxes := ps.rrBoxes
-rrLines := ps.rrLines
-rrLabs := ps.rrLabs
-lastEntry := ps.lastEntry
-lastSL := ps.lastSL
-lastTP1 := ps.lastTP1
-lastTP2 := ps.lastTP2
-lastTag := ps.lastTag
-lastSigTime := ps.lastSigTime
-fireLong = ps.fireLong
-fireShort = ps.fireShort
-slLong = ps.slLong
-slShort = ps.slShort
-tagLong = ps.tagLong
-tagShort = ps.tagShort
-mssLongMark = ps.mssLongMark
-mssShortMark = ps.mssShortMark
-cisdLongMark = ps.cisdLongMark
-cisdShortMark = ps.cisdShortMark
+if fireShort
+    dist := slShort - close
+    if dist > 0
+        opp := f_oppShort()
+        // v6.1 TP1: Asia opposite → else -0.27 expansion → else R multiple
+        float asiaRngS = not na(asiaH) and not na(asiaL) and asiaH > asiaL ? asiaH - asiaL : na
+        float fib027S = not na(asiaRngS) ? asiaL - asiaRngS * 0.272 : na
+        tp1 := tp1AsiaOpp and not na(asiaL) and asiaL < close ? asiaL : tp1Fib027 and not na(fib027S) and fib027S < close ? fib027S : close - dist * rr1
+        float runS = not na(drawSSL) ? drawSSL : opp
+        tp2 := tp2Mode == "Opposite liquidity level" and not na(runS) and runS < close - dist ? runS : close - dist * rr2
+        if not effUseRR2 or (close - tp2) >= minRR2 * dist
+            float riskBaseS = qtyMode == "Risk % of equity" ? strategy.equity : accountSize
+            qty := qtyMode == "Fixed size" ? fixedQty : math.max(minQty, math.min(maxQty, (riskBaseS * riskPct / 100) / dist))
+            qtyTxt := str.tostring(qty, "#.##")
+            sigTimeTxt := str.format_time(time, "dd MMM HH:mm", sigTZ)
+            f_drawTrade(false, close, slShort, tp1, tp2, qtyTxt, tagShort, sigTimeTxt)
+            if useStrategyOrders and qty > 0 and strategy.position_size >= 0
+                if closeOpposite and strategy.position_size > 0
+                    strategy.close("BUY", comment = "flip to SELL")
+                strategy.entry("SELL", strategy.short, qty = qty, comment = tagShort)
+                if usePartialTP
+                    strategy.exit("SELL-TP1", from_entry = "SELL", qty_percent = 50, limit = tp1, stop = slShort, comment = "TP1")
+                    strategy.exit("SELL-TP2", from_entry = "SELL", limit = tp2, stop = slShort, comment = "TP2")
+                else
+                    strategy.exit("SELL-X", from_entry = "SELL", limit = tp1, stop = slShort, comment = "TP1")
+            alert("GOLD SELL [" + tagShort + "] " + sigTimeTxt + " Entry " + str.tostring(close, format.mintick) + " | SL " + str.tostring(slShort, format.mintick) + " | TP1 " + str.tostring(tp1, format.mintick) + " | TP2 " + str.tostring(tp2, format.mintick) + " | Size " + qtyTxt + " | At TP1: take half + move SL to entry", alert.freq_once_per_bar_close)
+            lastEntry := close
+            lastSL := slShort
+            lastTP1 := tp1
+            lastTP2 := tp2
+            lastTag := tagShort
+            lastSigTime := time
+            signalsToday += 1
+            lastSigBar := bar_index
+            if kzBlock != 0
+                tradedKZBlock := kzBlock
 
-type EmitSnap
-    float lastEntry
-    float lastSL
-    float lastTP1
-    float lastTP2
-    string lastTag
-    int lastSigTime
-    int signalsToday
-    int lastSigBar
-    int tradedKZBlock
-
-f_emitTrades() =>
-    float v_lastEntry = lastEntry
-    float v_lastSL = lastSL
-    float v_lastTP1 = lastTP1
-    float v_lastTP2 = lastTP2
-    string v_lastTag = lastTag
-    int v_lastSigTime = lastSigTime
-    int v_signalsToday = signalsToday
-    int v_lastSigBar = lastSigBar
-    int v_tradedKZBlock = tradedKZBlock
-    float dist = na
-    float opp = na
-    float tp1 = na
-    float tp2 = na
-    float qty = na
-    string qtyTxt = ""
-    string sigTimeTxt = ""
-    if fireLong
-        dist := close - slLong
-        if dist > 0
-            opp := f_oppLong()
-            // v6.1 TP1: Asia opposite → else -0.27 expansion → else R multiple
-            float asiaRngL = not na(asiaH) and not na(asiaL) and asiaH > asiaL ? asiaH - asiaL : na
-            float fib027L = not na(asiaRngL) ? asiaH + asiaRngL * 0.272 : na
-            tp1 := tp1AsiaOpp and not na(asiaH) and asiaH > close ? asiaH : tp1Fib027 and not na(fib027L) and fib027L > close ? fib027L : close + dist * rr1
-            // TP2 runner: draw/PDH liquidity preferred
-            float runL = not na(drawBSL) ? drawBSL : opp
-            tp2 := tp2Mode == "Opposite liquidity level" and not na(runL) and runL > close + dist ? runL : close + dist * rr2
-            if not effUseRR2 or (tp2 - close) >= minRR2 * dist
-                float riskBaseL = qtyMode == "Risk % of equity" ? strategy.equity : accountSize
-                qty := qtyMode == "Fixed size" ? fixedQty : math.max(minQty, math.min(maxQty, (riskBaseL * riskPct / 100) / dist))
-                qtyTxt := str.tostring(qty, "#.##")
-                sigTimeTxt := str.format_time(time, "dd MMM HH:mm", sigTZ)
-                f_drawTrade(true, close, slLong, tp1, tp2, qtyTxt, tagLong, sigTimeTxt)
-                if useStrategyOrders and qty > 0 and strategy.position_size <= 0
-                    if closeOpposite and strategy.position_size < 0
-                        strategy.close("SELL", comment = "flip to BUY")
-                    strategy.entry("BUY", strategy.long, qty = qty, comment = tagLong)
-                    if usePartialTP
-                        strategy.exit("BUY-TP1", from_entry = "BUY", qty_percent = 50, limit = tp1, stop = slLong, comment = "TP1")
-                        strategy.exit("BUY-TP2", from_entry = "BUY", limit = tp2, stop = slLong, comment = "TP2")
-                    else
-                        strategy.exit("BUY-X", from_entry = "BUY", limit = tp1, stop = slLong, comment = "TP1")
-                alert("GOLD BUY [" + tagLong + "] " + sigTimeTxt + " Entry " + str.tostring(close, format.mintick) + " | SL " + str.tostring(slLong, format.mintick) + " | TP1 " + str.tostring(tp1, format.mintick) + " | TP2 " + str.tostring(tp2, format.mintick) + " | Size " + qtyTxt + " | At TP1: take half + move SL to entry", alert.freq_once_per_bar_close)
-                v_lastEntry := close
-                v_lastSL := slLong
-                v_lastTP1 := tp1
-                v_lastTP2 := tp2
-                v_lastTag := tagLong
-                v_lastSigTime := time
-                v_signalsToday += 1
-                v_lastSigBar := bar_index
-                if kzBlock != 0
-                    v_tradedKZBlock := kzBlock
-
-    if fireShort
-        dist := slShort - close
-        if dist > 0
-            opp := f_oppShort()
-            // v6.1 TP1: Asia opposite → else -0.27 expansion → else R multiple
-            float asiaRngS = not na(asiaH) and not na(asiaL) and asiaH > asiaL ? asiaH - asiaL : na
-            float fib027S = not na(asiaRngS) ? asiaL - asiaRngS * 0.272 : na
-            tp1 := tp1AsiaOpp and not na(asiaL) and asiaL < close ? asiaL : tp1Fib027 and not na(fib027S) and fib027S < close ? fib027S : close - dist * rr1
-            float runS = not na(drawSSL) ? drawSSL : opp
-            tp2 := tp2Mode == "Opposite liquidity level" and not na(runS) and runS < close - dist ? runS : close - dist * rr2
-            if not effUseRR2 or (close - tp2) >= minRR2 * dist
-                float riskBaseS = qtyMode == "Risk % of equity" ? strategy.equity : accountSize
-                qty := qtyMode == "Fixed size" ? fixedQty : math.max(minQty, math.min(maxQty, (riskBaseS * riskPct / 100) / dist))
-                qtyTxt := str.tostring(qty, "#.##")
-                sigTimeTxt := str.format_time(time, "dd MMM HH:mm", sigTZ)
-                f_drawTrade(false, close, slShort, tp1, tp2, qtyTxt, tagShort, sigTimeTxt)
-                if useStrategyOrders and qty > 0 and strategy.position_size >= 0
-                    if closeOpposite and strategy.position_size > 0
-                        strategy.close("BUY", comment = "flip to SELL")
-                    strategy.entry("SELL", strategy.short, qty = qty, comment = tagShort)
-                    if usePartialTP
-                        strategy.exit("SELL-TP1", from_entry = "SELL", qty_percent = 50, limit = tp1, stop = slShort, comment = "TP1")
-                        strategy.exit("SELL-TP2", from_entry = "SELL", limit = tp2, stop = slShort, comment = "TP2")
-                    else
-                        strategy.exit("SELL-X", from_entry = "SELL", limit = tp1, stop = slShort, comment = "TP1")
-                alert("GOLD SELL [" + tagShort + "] " + sigTimeTxt + " Entry " + str.tostring(close, format.mintick) + " | SL " + str.tostring(slShort, format.mintick) + " | TP1 " + str.tostring(tp1, format.mintick) + " | TP2 " + str.tostring(tp2, format.mintick) + " | Size " + qtyTxt + " | At TP1: take half + move SL to entry", alert.freq_once_per_bar_close)
-                v_lastEntry := close
-                v_lastSL := slShort
-                v_lastTP1 := tp1
-                v_lastTP2 := tp2
-                v_lastTag := tagShort
-                v_lastSigTime := time
-                v_signalsToday += 1
-                v_lastSigBar := bar_index
-                if kzBlock != 0
-                    v_tradedKZBlock := kzBlock
-
-    // ═══════════════════════════ VISUALS ═══════════════════════════
-    EmitSnap o = EmitSnap.new()
-    o.lastEntry := v_lastEntry
-    o.lastSL := v_lastSL
-    o.lastTP1 := v_lastTP1
-    o.lastTP2 := v_lastTP2
-    o.lastTag := v_lastTag
-    o.lastSigTime := v_lastSigTime
-    o.signalsToday := v_signalsToday
-    o.lastSigBar := v_lastSigBar
-    o.tradedKZBlock := v_tradedKZBlock
-    o
-
-EmitSnap es = f_emitTrades()
-lastEntry := es.lastEntry
-lastSL := es.lastSL
-lastTP1 := es.lastTP1
-lastTP2 := es.lastTP2
-lastTag := es.lastTag
-lastSigTime := es.lastSigTime
-signalsToday := es.signalsToday
-lastSigBar := es.lastSigBar
-tradedKZBlock := es.tradedKZBlock
-
+// ═══════════════════════════ VISUALS ═══════════════════════════
 plotshape(fireLong,  title = "BUY",  text = "BUY",  style = shape.labelup,   location = location.belowbar, color = color.green, textcolor = color.white, size = size.small)
 plotshape(fireShort, title = "SELL", text = "SELL", style = shape.labeldown, location = location.abovebar, color = color.red,   textcolor = color.white, size = size.small)
 // plotshape text must be const string — split simple/pro labels (CE10123)
+plotshape(showMSSMarks and mssLongMark and useSimple,     title = "MSS Long Simple",  text = "STRUCTURE\nFLIP UP",   style = shape.triangleup,   location = location.belowbar, color = color.lime, size = size.tiny)
+plotshape(showMSSMarks and mssLongMark and not useSimple, title = "MSS Long",         text = "MSS",                 style = shape.triangleup,   location = location.belowbar, color = color.lime, size = size.tiny)
+plotshape(showMSSMarks and mssShortMark and useSimple,     title = "MSS Short Simple", text = "STRUCTURE\nFLIP DOWN", style = shape.triangledown, location = location.abovebar, color = color.fuchsia, size = size.tiny)
+plotshape(showMSSMarks and mssShortMark and not useSimple, title = "MSS Short",        text = "MSS",                 style = shape.triangledown, location = location.abovebar, color = color.fuchsia, size = size.tiny)
+plotshape(showMSSMarks and cisdLongMark and useSimple,  title = "Early BUY arm",  text = "EARLY\nBUY", style = shape.circle, location = location.belowbar, color = color.new(color.teal, 40), size = size.tiny)
+plotshape(showMSSMarks and cisdLongMark and not useSimple,  title = "CISD Long",  text = "CISD", style = shape.circle, location = location.belowbar, color = color.new(color.teal, 40), size = size.tiny)
+plotshape(showMSSMarks and cisdShortMark and useSimple, title = "Early SELL arm", text = "EARLY\nSELL", style = shape.circle, location = location.abovebar, color = color.new(color.orange, 40), size = size.tiny)
+plotshape(showMSSMarks and cisdShortMark and not useSimple, title = "CISD Short", text = "CISD", style = shape.circle, location = location.abovebar, color = color.new(color.orange, 40), size = size.tiny)
 
 // Session killzone tint (AMD tint applied near table section)
 bgcolor(showBG and inLondon ? color.new(color.blue, 94) : showBG and inSB ? color.new(color.green, 92) : showBG and inNY ? color.new(color.purple, 94) : na)
@@ -2231,6 +1915,17 @@ nyStart     = inNY and not inNY[1]
 sbStart     = inSB and not inSB[1]
 sessEnd     = not (inLondon or inNY or inSB) and (inLondon[1] or inNY[1] or inSB[1])
 // TOP of pane only (not on candles). Full Melb+NY clock stays in the table "Time of day" row.
+plotshape(showBG and londonStart, title = "London open", text = "LONDON OPEN\nOK to trade", style = shape.labeldown, location = location.top, color = color.blue, textcolor = color.white, size = size.tiny)
+plotshape(showBG and nyStart, title = "New York open", text = "NEW YORK OPEN\nOK to trade", style = shape.labeldown, location = location.top, color = color.purple, textcolor = color.white, size = size.tiny)
+plotshape(showBG and sbStart, title = "Best hour", text = "BEST HOUR\nOK to trade", style = shape.labeldown, location = location.top, color = color.green, textcolor = color.white, size = size.tiny)
+plotshape(showBG and sessEnd and inLondon[1], title = "London closed", text = "LONDON CLOSED\nwait next", style = shape.labeldown, location = location.top, color = color.gray, textcolor = color.white, size = size.tiny)
+plotshape(showBG and sessEnd and not inLondon[1] and inSB[1], title = "Best hour closed", text = "BEST HOUR CLOSED\nwait next", style = shape.labeldown, location = location.top, color = color.gray, textcolor = color.white, size = size.tiny)
+plotshape(showBG and sessEnd and not inLondon[1] and not inSB[1] and inNY[1], title = "NY closed", text = "NY CLOSED\nwait next", style = shape.labeldown, location = location.top, color = color.gray, textcolor = color.white, size = size.tiny)
+plotshape(showBellMarks and showBG and bellLonOpen, title = "London cash open", text = "LON CASH OPEN\nEurope+Asia", style = shape.labeldown, location = location.top, color = color.rgb(30, 136, 229), textcolor = color.white, size = size.tiny)
+plotshape(showBellMarks and showBG and bellLonClose, title = "London cash close", text = "LON CASH CLOSE\n01:30 Melb", style = shape.labeldown, location = location.top, color = color.rgb(25, 118, 210), textcolor = color.white, size = size.tiny)
+plotshape(showBellMarks and showBG and bellUsOpen, title = "US equity open", text = "US CASH OPEN\n23:30 Melb", style = shape.labeldown, location = location.top, color = color.rgb(156, 39, 176), textcolor = color.white, size = size.tiny)
+plotshape(showBellMarks and showBG and bellNyseClose, title = "NYSE cash close", text = "NYSE CLOSE\nUS cash end", style = shape.labeldown, location = location.top, color = color.rgb(123, 31, 162), textcolor = color.white, size = size.tiny)
+plotshape(showBellMarks and showBG and bellAsiaOpen, title = "Asia pack open", text = "ASIA OPEN\nHK pack", style = shape.labeldown, location = location.top, color = color.rgb(0, 150, 136), textcolor = color.white, size = size.tiny)
 
 plot(showBiasPlot and biasShow and not na(biasEma) ? biasEma : na, "4H Bias EMA", color = color.new(color.gray, 35), linewidth = 2)
 
@@ -2246,13 +1941,13 @@ if showStochLines
     if k15 >= stochOB and not (k15[1] >= stochOB)
         label.new(bar_index, high + stOff * 1.8, useSimple ? "Buyers tired 15m (SELL side ready)" : "15m OB", style = label.style_label_lower_right, color = f_lblBg(color.yellow), textcolor = color.black, size = size.tiny)
 
+
 // ═══════════════════════════ UI (lean STR — CE10295) ═══════════════════════════
-// Full desk table / pin / cash-merge UI is on the INDICATOR. Strategy = Tester orders.
-
+// Full research desk table / cash-out merge / pin board stay on the INDICATOR.
+// Strategy keeps a tiny status strip for Strategy Tester readability.
 var table t = table.new(position.top_right, 2, 4, bgcolor = color.new(color.white, 10), border_color = color.black, border_width = 1)
-
-f_updateTable() =>
-    if showTable and barstate.islast
+if barstate.islast
+    if showTable
         table.cell(t, 0, 0, "GOLD LiqSweep STR v6.8.4", text_color = color.white, bgcolor = color.navy, text_size = size.small)
         table.cell(t, 1, 0, standAside ? "STAND ASIDE" : "SCANNING", text_color = color.white, bgcolor = standAside ? color.red : color.green, text_size = size.small)
         table.cell(t, 0, 1, "Last", text_color = color.gray, text_size = size.small)
@@ -2261,14 +1956,25 @@ f_updateTable() =>
         table.cell(t, 1, 2, str.tostring(signalsToday), text_color = color.white, text_size = size.small)
         table.cell(t, 0, 3, "Note", text_color = color.gray, text_size = size.tiny)
         table.cell(t, 1, 3, "Full desk UI = indicator", text_color = color.gray, text_size = size.tiny)
-        true
-    else
-        false
-
-f_updateTable()
 
 bgcolor(showEliteVis and useAMD and amdPhase == "ACC" ? color.new(color.blue, 96) : showEliteVis and useAMD and amdPhase == "MAN" ? color.new(color.orange, 94) : showEliteVis and useAMD and amdPhase == "DIST" ? color.new(color.green, 96) : na, title = "AMD phase")
 
 // ═══════════════════════════ ALERTS ═══════════════════════════
 alertcondition(fireLong,  "Any BUY signal",  "GOLD PRO: BUY - check chart for entry/SL/TP lines")
 alertcondition(fireShort, "Any SELL signal", "GOLD PRO: SELL - check chart for entry/SL/TP lines")
+alertcondition(mssLongMark,  "MSS bullish confirm", "GOLD PRO: Market Structure Shift UP after SSL sweep - watch BUY zone")
+alertcondition(mssShortMark, "MSS bearish confirm", "GOLD PRO: Market Structure Shift DOWN after BSL sweep - watch SELL zone")
+alertcondition(k5 <= stochOS and k15 <= stochOS and not (k5[1] <= stochOS and k15[1] <= stochOS), "StochRSI BUY-side armed",  "GOLD PRO: 5m + 15m StochRSI both oversold - watch lower liquidity lines")
+alertcondition(k5 >= stochOB and k15 >= stochOB and not (k5[1] >= stochOB and k15[1] >= stochOB), "StochRSI SELL-side armed", "GOLD PRO: 5m + 15m StochRSI both overbought - watch upper liquidity lines")
+alertcondition(standAside and not standAside[1], "Stay-away ON",  "GOLD PRO: STAND ASIDE - conditions favour doing nothing (check table)")
+alertcondition(not standAside and standAside[1], "Stay-away OFF", "GOLD PRO: Conditions normal again - scanning for setups")
+alertcondition(adrSpent and not adrSpent[1], "ADR exhausted", "GOLD PRO: Daily range spent - breakouts OFF, fade extremes only")
+alertcondition(asiaHighSweptLondon or asiaLowSweptLondon, "Judas (London vs Asia)", "GOLD PRO: London swept Asia range - classic institutional Judas setup")
+alertcondition(smtBullRaw and not smtBullRaw[1], "SMT bullish", "GOLD PRO: SMT bullish (Silver/DXY/ES) - buy-side bias")
+alertcondition(smtBearRaw and not smtBearRaw[1], "SMT bearish", "GOLD PRO: SMT bearish (Silver/DXY/ES) - sell-side bias")
+alertcondition(trueJudasBuy and not trueJudasBuy[1], "True Judas BUY path", "GOLD PRO: True Judas BUY armed - Asia fake-down with daily buy bias")
+alertcondition(trueJudasSell and not trueJudasSell[1], "True Judas SELL path", "GOLD PRO: True Judas SELL armed - Asia fake-up with daily sell bias")
+alertcondition(inDeadHrs and not inDeadHrs[1], "Dead hours ON", "GOLD PRO: London close / NY lunch - stand aside")
+alertcondition(amdPhase == "DIST" and amdPhase[1] != "DIST", "AMD Distribution", "GOLD PRO: Power of 3 entered Distribution - look for continuation entries")
+alertcondition(aPlusLong and not aPlusLong[1], "A+ BUY confluence", "GOLD PRO: A+ buy confluence live - draw+nest+session+SMT/Judas")
+alertcondition(aPlusShort and not aPlusShort[1], "A+ SELL confluence", "GOLD PRO: A+ sell confluence live - draw+nest+session+SMT/Judas")
