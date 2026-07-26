@@ -1,16 +1,22 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Gold Liquidity Sweep PRO v6.8.2 — EXCHANGE BELLS [Rajesh Sha]
+// Gold Liquidity Sweep PRO v6.8.3 - EXCHANGE BELLS [Rajesh Sha]
 // TIMEZONE POLICY:
 //   TRADE CLOCK = America/New_York  (killzones, news, dead hours, day/week opens, bias day, exchange bells)
 //   DISPLAY CLOCK = sigTZ (default Australia/Melbourne) for table/labels only
+// v6.8.3: Pack version aligned with Strategy + paste-safe reload + table R div0 guard.
 // v6.8.2: Full exchange-bell pack (multi-exchange magnets).
-//   Lon open 03:00 NY≈17:00 Melb · Lon close 11:30 NY≈01:30 Melb · US open 09:30 NY≈23:30 Melb
-//   NYSE close 16:00 NY≈06:00 Melb · Asia open (HK) 21:30 NY≈11:30 Melb
+//   Lon open 03:00 NY~17:00 Melb · Lon close 11:30 NY~01:30 Melb · US open 09:30 NY~23:30 Melb
+//   NYSE close 16:00 NY~06:00 Melb · Asia open (HK) 21:30 NY~11:30 Melb
 // USE: OANDA:XAUUSD, 1-minute. HTF non-repainting ([1]+lookahead_on).
+//
+// PASTE RULES (blank indicator tab only — do not paste under another script):
+//   1) Remove old GOLD LiqSweep PRO from chart
+//   2) Pine Editor -> blank indicator tab -> paste THIS file alone
+//   3) Save -> Add to chart -> confirm shorttitle shows v6.8.3
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=6
-indicator("Gold Liquidity Sweep PRO v6.8.2 — Signals",
-     shorttitle = "GOLD LiqSweep PRO v6.8.2",
+indicator("Gold Liquidity Sweep PRO v6.8.3 Signals",
+     shorttitle = "GOLD LiqSweep PRO v6.8.3",
      overlay = true,
      max_lines_count = 500,
      max_labels_count = 500,
@@ -2407,7 +2413,7 @@ if showTable and barstate.islast
     color midMonCol = not useOpens or na(midOpen) ? color.gray : close < midOpen ? tblGood : close > midOpen ? tblBad : color.orange
 
     // ═══════════ LAYOUT (read top → bottom) ═══════════
-    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.8.2", text_color = color.white, bgcolor = color.navy, text_size = size.small)
+    table.cell(t, 0, 0, "GOLD LiqSweep PRO v6.8.3", text_color = color.white, bgcolor = color.navy, text_size = size.small)
     table.cell(t, 1, 0, hdrStatus, text_color = color.white, bgcolor = hdrBg, text_size = size.small)
 
     f_tblSec(t, 1, useSimple ? "1) GATE - can I trade now?" : "1) GATE")
@@ -2451,9 +2457,11 @@ if showTable and barstate.islast
 
     f_tblSec(t, 34, useSimple ? "6) LOG - score and mode" : "6) LOG")
     f_tblRow(t, 35, useSimple ? "Research edge (desk)" : "Edge", edgeTxt, tblMute, edgeCol)
-    f_tblRow(t, 36, useSimple ? "Ideas today / last" : "Signals", str.tostring(signalsToday) + " / " + str.tostring(maxSigDay) + " · " + (lastTag == "" ? (useSimple ? "no idea yet" : "-") : lastTag + (na(lastEntry) or na(lastSL) or na(lastTP1) ? "" : " · SL " + str.tostring(lastSL, format.mintick) + " · TP " + str.tostring(lastTP1, format.mintick) + " · " + str.tostring(math.abs(lastTP1 - lastEntry) / math.abs(lastEntry - lastSL), "#.#") + "R")), tblMute, tblKey)
+    float lastRisk = na(lastEntry) or na(lastSL) ? na : math.abs(lastEntry - lastSL)
+    string lastRrTxt = na(lastEntry) or na(lastSL) or na(lastTP1) or na(lastRisk) or lastRisk <= syminfo.mintick ? "" : " · SL " + str.tostring(lastSL, format.mintick) + " · TP " + str.tostring(lastTP1, format.mintick) + " · " + str.tostring(math.abs(lastTP1 - lastEntry) / lastRisk, "#.#") + "R"
+    f_tblRow(t, 36, useSimple ? "Ideas today / last" : "Signals", str.tostring(signalsToday) + " / " + str.tostring(maxSigDay) + " · " + (lastTag == "" ? (useSimple ? "no idea yet" : "-") : lastTag + lastRrTxt), tblMute, tblKey)
     table.cell(t, 0, 37, useSimple ? "How entries work" : "Mode", text_color = tblMute, text_size = size.tiny)
-    table.cell(t, 1, 37, useSimple ? "Research → wait gate → sweep → flip → pullback | v6.8.2" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.8.2", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
+    table.cell(t, 1, 37, useSimple ? "Research → wait gate → sweep → flip → pullback | v6.8.3" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | v6.8.3", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 38, useSimple ? "Tools ON" : "Edges", text_color = tblMute, text_size = size.tiny)
     table.cell(t, 1, 38, useSimple ? ((useDailyBias ? "DaySide " : "") + (useJudasWin ? "FakeMove " : "") + (useDispGate ? "StrongPush " : "") + (sbPlaybook ? "BestHour " : "") + (useIPDA ? "20/40Day " : "") + (useSmtES ? "Stocks " : "") + (useDeadHrs ? "SlowHrs " : "") + (useHTFDraw ? "TP-lines " : "") + (useAMD ? "DayStory " : "") + (useXBells ? "Bells " : "") + (aPlusMode ? "TopOnly" : "")) : ((useDailyBias ? "DayBias " : "") + (useJudasWin ? "Judas " : "") + (useDispGate ? "DispFVG " : "") + (sbPlaybook ? "SB " : "") + (useIPDA ? "IPDA " : "") + (useSmtES ? "ES " : "") + (useDeadHrs ? "DeadHrs " : "") + (useHTFDraw ? "Draw " : "") + (useAMD ? "AMD " : "") + (useXBells ? "Bells " : "") + (aPlusMode ? "A+" : "")), text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 39, useSimple ? "Desk rule" : "Flow", text_color = tblMute, text_size = size.tiny)
