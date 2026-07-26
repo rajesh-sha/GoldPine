@@ -1546,11 +1546,11 @@ if contShortSig and not fireShort
 
 // TESTER fallback: session + liquidity sweep reclaim (produces Strategy Tester trades)
 if testerLoose and canSignal and sessionOK and strategy.position_size == 0
-    if not fireLong and anyBull and bullCndl and close > open and (not usePremDisc or inDiscount or not effReqDaily)
+    if not fireLong and not fireShort and anyBull and bullCndl and close > open and (not usePremDisc or inDiscount or not effReqDaily)
         fireLong := true
         slLong := (na(armSL) ? low : math.min(low, armSL)) - slBufATR * atrVal
         tagLong := "Tester BUY " + (sweptLongName != "" ? sweptLongName : "sweep")
-    if not fireShort and anyBear and bearCndl and close < open and (not usePremDisc or inPremium or not effReqDaily)
+    else if not fireLong and not fireShort and anyBear and bearCndl and close < open and (not usePremDisc or inPremium or not effReqDaily)
         fireShort := true
         slShort := (na(armSL) ? high : math.max(high, armSL)) + slBufATR * atrVal
         tagShort := "Tester SELL " + (sweptShortName != "" ? sweptShortName : "sweep")
