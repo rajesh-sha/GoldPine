@@ -1,11 +1,18 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Rajesh Sha Strategy — TIDY (logic unchanged)
+// IST Close Pulse v1.0.0 (Rajesh Sha Strategy - TIDY)
 // Original: coded by the_pro_coder (Fiverr)
 // Tidied: inputs grouped, sections clarified, small UI/data bugs fixed.
-// Core entry / exit / MACD / ATR / observation rules = same as original.
+// Core entry / exit / MACD / ATR / observation rules = SAME as original.
+// KEEP SEPARATE from Gold LiqSweep PRO (do not merge / stack on same chart).
+//
+// PASTE RULES (avoids CE10243 double strategy() errors):
+//   1) Pine Editor -> blank strategy tab (delete all lines first)
+//   2) Paste THIS file alone (not under Gold / sample code)
+//   3) Save -> Add to chart -> confirm shorttitle shows IST Close Pulse
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=5
-strategy("Rajesh Sha Strategy",
+strategy("IST Close Pulse v1.0.0",
+     shorttitle           = "IST Close Pulse",
      overlay              = true,
      max_labels_count     = 500,
      max_lines_count      = 500,
