@@ -1,5 +1,9 @@
-# GoldPine v6.7.7 — SMART LABELS
+# GoldPine v6.7.9
 
-Paste: https://raw.githubusercontent.com/rajesh-sha/GoldPine/cursor/gold-liq-sweep-pro-v3-09e0/GOLD_FINAL_PASTE_THIS.txt
+## Indicator (chart map / table)
+https://raw.githubusercontent.com/rajesh-sha/GoldPine/cursor/gold-liq-sweep-pro-v3-09e0/GOLD_FINAL_PASTE_THIS.txt
 
-Shorter chart labels: merges Today open + NY midnight when same price; RND tips shortened.
+## Strategy Tester
+https://raw.githubusercontent.com/rajesh-sha/GoldPine/cursor/gold-liq-sweep-pro-v3-09e0/GOLD_STRATEGY_PASTE_THIS.txt
+
+Open labels now say: `above = SELL side · comes back here` (not "magnet").
