@@ -1,14 +1,21 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Gold Liquidity Sweep PRO v6.8.2 — EXCHANGE BELLS [Rajesh Sha]
+// Gold Liquidity Sweep PRO v6.8.3 - EXCHANGE BELLS [Rajesh Sha]
 // Same map/signals as the indicator, wired for TradingView Strategy Tester.
 // TRADE CLOCK = America/New_York · DISPLAY = Melbourne (table)
-// v6.8.2: Full exchange-bell pack — Lon open/close, US open/close, Asia open (multi-exchange magnets).
+// v6.8.3: Paste-safe reload + trade var types + table R div0 guard (bells unchanged).
+// v6.8.2: Full exchange-bell pack - Lon/US/Asia open + Lon/NYSE close magnets.
 // USE: OANDA:XAUUSD or TVC:GOLD, 1-minute. TESTER MODE ON by default (more trades).
-// Remove + re-add script after paste so new defaults apply. Orders fill on bar close.
+//
+// PASTE RULES (avoids CE10243 "script has 2 strategy()" errors):
+//   1) Pine Editor -> open a BLANK strategy tab (or Delete all lines first)
+//   2) Paste THIS file alone (do not paste under sample / old / IST code)
+//   3) Save -> Add to chart -> confirm shorttitle shows v6.8.3
+//   4) Remove any older GOLD LiqSweep STR from the chart first
+// Orders fill on bar close.
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=6
-strategy("Gold Liquidity Sweep PRO v6.8.2 — Strategy",
-     shorttitle = "GOLD LiqSweep STR v6.8.2",
+strategy("Gold Liquidity Sweep PRO v6.8.3 Strategy",
+     shorttitle = "GOLD LiqSweep STR v6.8.3",
      overlay = true,
      pyramiding = 0,
      process_orders_on_close = true,
@@ -1802,22 +1809,31 @@ var float lastTP2   = na
 var string lastTag  = ""
 var int   lastSigTime = na
 
+// Typed once (avoids undeclared-series edge cases in Pine compiler)
+float dist = na
+float opp = na
+float tp1 = na
+float tp2 = na
+float qty = na
+string qtyTxt = ""
+string sigTimeTxt = ""
+
 if fireLong
-    dist = close - slLong
+    dist := close - slLong
     if dist > 0
-        opp = f_oppLong()
+        opp := f_oppLong()
         // v6.1 TP1: Asia opposite → else -0.27 expansion → else R multiple
         float asiaRngL = not na(asiaH) and not na(asiaL) and asiaH > asiaL ? asiaH - asiaL : na
         float fib027L = not na(asiaRngL) ? asiaH + asiaRngL * 0.272 : na
-        tp1 = tp1AsiaOpp and not na(asiaH) and asiaH > close ? asiaH : tp1Fib027 and not na(fib027L) and fib027L > close ? fib027L : close + dist * rr1
+        tp1 := tp1AsiaOpp and not na(asiaH) and asiaH > close ? asiaH : tp1Fib027 and not na(fib027L) and fib027L > close ? fib027L : close + dist * rr1
         // TP2 runner: draw/PDH liquidity preferred
         float runL = not na(drawBSL) ? drawBSL : opp
-        tp2 = tp2Mode == "Opposite liquidity level" and not na(runL) and runL > close + dist ? runL : close + dist * rr2
+        tp2 := tp2Mode == "Opposite liquidity level" and not na(runL) and runL > close + dist ? runL : close + dist * rr2
         if not effUseRR2 or (tp2 - close) >= minRR2 * dist
             float riskBaseL = qtyMode == "Risk % of equity" ? strategy.equity : accountSize
-            qty = qtyMode == "Fixed size" ? fixedQty : math.max(minQty, math.min(maxQty, (riskBaseL * riskPct / 100) / dist))
-            qtyTxt = str.tostring(qty, "#.##")
-            sigTimeTxt = str.format_time(time, "dd MMM HH:mm", sigTZ)
+            qty := qtyMode == "Fixed size" ? fixedQty : math.max(minQty, math.min(maxQty, (riskBaseL * riskPct / 100) / dist))
+            qtyTxt := str.tostring(qty, "#.##")
+            sigTimeTxt := str.format_time(time, "dd MMM HH:mm", sigTZ)
             f_drawTrade(true, close, slLong, tp1, tp2, qtyTxt, tagLong, sigTimeTxt)
             if useStrategyOrders and qty > 0 and strategy.position_size <= 0
                 if closeOpposite and strategy.position_size < 0
@@ -1841,20 +1857,20 @@ if fireLong
                 tradedKZBlock := kzBlock
 
 if fireShort
-    dist = slShort - close
+    dist := slShort - close
     if dist > 0
-        opp = f_oppShort()
+        opp := f_oppShort()
         // v6.1 TP1: Asia opposite → else -0.27 expansion → else R multiple
         float asiaRngS = not na(asiaH) and not na(asiaL) and asiaH > asiaL ? asiaH - asiaL : na
         float fib027S = not na(asiaRngS) ? asiaL - asiaRngS * 0.272 : na
-        tp1 = tp1AsiaOpp and not na(asiaL) and asiaL < close ? asiaL : tp1Fib027 and not na(fib027S) and fib027S < close ? fib027S : close - dist * rr1
+        tp1 := tp1AsiaOpp and not na(asiaL) and asiaL < close ? asiaL : tp1Fib027 and not na(fib027S) and fib027S < close ? fib027S : close - dist * rr1
         float runS = not na(drawSSL) ? drawSSL : opp
-        tp2 = tp2Mode == "Opposite liquidity level" and not na(runS) and runS < close - dist ? runS : close - dist * rr2
+        tp2 := tp2Mode == "Opposite liquidity level" and not na(runS) and runS < close - dist ? runS : close - dist * rr2
         if not effUseRR2 or (close - tp2) >= minRR2 * dist
             float riskBaseS = qtyMode == "Risk % of equity" ? strategy.equity : accountSize
-            qty = qtyMode == "Fixed size" ? fixedQty : math.max(minQty, math.min(maxQty, (riskBaseS * riskPct / 100) / dist))
-            qtyTxt = str.tostring(qty, "#.##")
-            sigTimeTxt = str.format_time(time, "dd MMM HH:mm", sigTZ)
+            qty := qtyMode == "Fixed size" ? fixedQty : math.max(minQty, math.min(maxQty, (riskBaseS * riskPct / 100) / dist))
+            qtyTxt := str.tostring(qty, "#.##")
+            sigTimeTxt := str.format_time(time, "dd MMM HH:mm", sigTZ)
             f_drawTrade(false, close, slShort, tp1, tp2, qtyTxt, tagShort, sigTimeTxt)
             if useStrategyOrders and qty > 0 and strategy.position_size >= 0
                 if closeOpposite and strategy.position_size > 0
@@ -2465,7 +2481,7 @@ if showTable and barstate.islast
     color midMonCol = not useOpens or na(midOpen) ? color.gray : close < midOpen ? tblGood : close > midOpen ? tblBad : color.orange
 
     // ═══════════ LAYOUT (read top → bottom) ═══════════
-    table.cell(t, 0, 0, "GOLD LiqSweep STR v6.8.2", text_color = color.white, bgcolor = color.navy, text_size = size.small)
+    table.cell(t, 0, 0, "GOLD LiqSweep STR v6.8.3", text_color = color.white, bgcolor = color.navy, text_size = size.small)
     table.cell(t, 1, 0, hdrStatus, text_color = color.white, bgcolor = hdrBg, text_size = size.small)
 
     f_tblSec(t, 1, useSimple ? "1) GATE - can I trade now?" : "1) GATE")
@@ -2509,9 +2525,11 @@ if showTable and barstate.islast
 
     f_tblSec(t, 34, useSimple ? "6) LOG - score and mode" : "6) LOG")
     f_tblRow(t, 35, useSimple ? "Research edge (desk)" : "Edge", edgeTxt, tblMute, edgeCol)
-    f_tblRow(t, 36, useSimple ? "Ideas today / last" : "Signals", str.tostring(signalsToday) + " / " + str.tostring(maxSigDay) + " · " + (lastTag == "" ? (useSimple ? "no idea yet" : "-") : lastTag + (na(lastEntry) or na(lastSL) or na(lastTP1) ? "" : " · SL " + str.tostring(lastSL, format.mintick) + " · TP " + str.tostring(lastTP1, format.mintick) + " · " + str.tostring(math.abs(lastTP1 - lastEntry) / math.abs(lastEntry - lastSL), "#.#") + "R")), tblMute, tblKey)
+    float lastRisk = na(lastEntry) or na(lastSL) ? na : math.abs(lastEntry - lastSL)
+    string lastRrTxt = na(lastEntry) or na(lastSL) or na(lastTP1) or na(lastRisk) or lastRisk <= syminfo.mintick ? "" : " · SL " + str.tostring(lastSL, format.mintick) + " · TP " + str.tostring(lastTP1, format.mintick) + " · " + str.tostring(math.abs(lastTP1 - lastEntry) / lastRisk, "#.#") + "R"
+    f_tblRow(t, 36, useSimple ? "Ideas today / last" : "Signals", str.tostring(signalsToday) + " / " + str.tostring(maxSigDay) + " · " + (lastTag == "" ? (useSimple ? "no idea yet" : "-") : lastTag + lastRrTxt), tblMute, tblKey)
     table.cell(t, 0, 37, useSimple ? "How entries work" : "Mode", text_color = tblMute, text_size = size.tiny)
-    table.cell(t, 1, 37, useSimple ? "Research → wait gate → sweep → flip → pullback | STR v6.8.2" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | STR v6.8.2", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
+    table.cell(t, 1, 37, useSimple ? "Research → wait gate → sweep → flip → pullback | STR v6.8.3" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | STR v6.8.3", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 38, useSimple ? "Tools ON" : "Edges", text_color = tblMute, text_size = size.tiny)
     table.cell(t, 1, 38, useSimple ? ((useDailyBias ? "DaySide " : "") + (useJudasWin ? "FakeMove " : "") + (useDispGate ? "StrongPush " : "") + (sbPlaybook ? "BestHour " : "") + (useIPDA ? "20/40Day " : "") + (useSmtES ? "Stocks " : "") + (useDeadHrs ? "SlowHrs " : "") + (useHTFDraw ? "TP-lines " : "") + (useAMD ? "DayStory " : "") + (useXBells ? "Bells " : "") + (aPlusMode ? "TopOnly" : "")) : ((useDailyBias ? "DayBias " : "") + (useJudasWin ? "Judas " : "") + (useDispGate ? "DispFVG " : "") + (sbPlaybook ? "SB " : "") + (useIPDA ? "IPDA " : "") + (useSmtES ? "ES " : "") + (useDeadHrs ? "DeadHrs " : "") + (useHTFDraw ? "Draw " : "") + (useAMD ? "AMD " : "") + (useXBells ? "Bells " : "") + (aPlusMode ? "A+" : "")), text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 39, useSimple ? "Desk rule" : "Flow", text_color = tblMute, text_size = size.tiny)
