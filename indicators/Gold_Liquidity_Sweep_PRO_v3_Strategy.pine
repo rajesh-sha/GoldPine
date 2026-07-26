@@ -1,12 +1,13 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Gold Liquidity Sweep PRO v6.7.7 — STRATEGY TESTER [Rajesh Sha]
+// Gold Liquidity Sweep PRO v6.7.8 — STRATEGY TESTER [Rajesh Sha]
 // Same map/signals as the indicator, wired for TradingView Strategy Tester.
 // TRADE CLOCK = America/New_York · DISPLAY = Melbourne (table)
-// USE: OANDA:XAUUSD, 1-minute. Orders fill on bar close (tester-safe).
+// USE: OANDA:XAUUSD or TVC:GOLD, 1-minute. TESTER MODE ON by default (more trades).
+// Remove + re-add script after paste so new defaults apply. Orders fill on bar close.
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=6
-strategy("Gold Liquidity Sweep PRO v6.7.7 — Strategy",
-     shorttitle = "GOLD LiqSweep STR v6.7.7",
+strategy("Gold Liquidity Sweep PRO v6.7.8 — Strategy",
+     shorttitle = "GOLD LiqSweep STR v6.7.8",
      overlay = true,
      pyramiding = 0,
      process_orders_on_close = true,
@@ -53,7 +54,7 @@ atrLen      = input.int(14, "ATR Length (chart TF)", group = grpSwp)
 minWickRatio = input.float(0.45, "Min rejection wick / range (quality)", minval = 0.0, maxval = 0.9, step = 0.05, group = grpSwp, tooltip = "Institutional sweeps leave a long rejection wick. 0.45 = wick is at least 45% of the candle range.")
 
 grpInst = "Institutional Confirmation (PRO edge)"
-entryMode = input.string("MSS + FVG/OB (PRO)", "Reversal Entry Style", options = ["Reclaim close", "FVG retest", "MSS + FVG/OB (PRO)"], group = grpInst, tooltip = "PRO = Sweep → MSS/CHoCH → enter on Order Block or FVG. This is the sequence used by ICT/SMC desks — not the retail 'buy the wick' version.")
+entryMode = input.string("Reclaim close", "Reversal Entry Style", options = ["Reclaim close", "FVG retest", "MSS + FVG/OB (PRO)"], group = grpInst, tooltip = "PRO = Sweep → MSS/CHoCH → enter on Order Block or FVG. This is the sequence used by ICT/SMC desks — not the retail 'buy the wick' version.")
 useMSS      = input.bool(true, "Require Market Structure Shift (MSS)", group = grpInst, tooltip = "After sweeping SSL, price must BODY-CLOSE above the swing high that ran into the pool (bullish MSS). After sweeping BSL, body-close below the swing low (bearish MSS). Without MSS, a sweep is only a suspicion.")
 mssPivot    = input.int(5, "MSS swing pivot length", minval = 2, group = grpInst)
 mssWindow   = input.int(25, "Bars allowed for MSS after sweep", minval = 3, group = grpInst)
@@ -71,16 +72,16 @@ requireHier = input.bool(false, "ONLY trade session-hierarchy sweeps", group = g
 
 grpPlay = "Daily Playbook (v6.1 — complete)"
 useDailyBias = input.bool(true, "Use Daily Bias narrative", group = grpPlay, tooltip = "Midnight/day open vs price + daily premium/discount + 4H. Locks BUY-only or SELL-only at London open.")
-requireDailyBias = input.bool(true, "REQUIRE trade with locked Daily Bias", group = grpPlay, tooltip = "ON = only trade the locked side (BUY day or SELL day). Mixed = no new signals.")
+requireDailyBias = input.bool(false, "REQUIRE trade with locked Daily Bias", group = grpPlay, tooltip = "ON = only trade the locked side (BUY day or SELL day). Mixed = no new signals.")
 lockBiasAtLondon = input.bool(true, "Lock bias at London open", group = grpPlay)
 useJudasWin = input.bool(true, "True Judas model (timed)", group = grpPlay, tooltip = "02:00–05:00 NY: Asia sweep AGAINST daily bias, then displacement+FVG and MSS WITH bias before entry.")
 judasWin = input.session("0200-0500", "Judas window (NY time)", group = grpPlay)
-requireJudasPath = input.bool(true, "REQUIRE True Judas path for London", group = grpPlay)
-useDispGate = input.bool(true, "Require strong displacement + FVG", group = grpPlay, tooltip = "No strong body push that leaves an FVG = no trade.")
+requireJudasPath = input.bool(false, "REQUIRE True Judas path for London", group = grpPlay)
+useDispGate = input.bool(false, "Require strong displacement + FVG", group = grpPlay, tooltip = "No strong body push that leaves an FVG = no trade.")
 dispBodyATR = input.float(1.0, "Displacement body >= ATR x", minval = 0.3, step = 0.1, group = grpPlay)
 requireDispFVG = input.bool(true, "Displacement must leave FVG", group = grpPlay)
 sbPlaybook = input.bool(true, "Silver Bullet model (10-11 NY)", group = grpPlay, tooltip = "During SB: require recent swing sweep → then MSS/CHoCH → FVG/OB (PRO path).")
-requireSBModel = input.bool(true, "REQUIRE SB swing-sweep path in SB hour", group = grpPlay)
+requireSBModel = input.bool(false, "REQUIRE SB swing-sweep path in SB hour", group = grpPlay)
 sbOnly = input.bool(false, "ONLY signal in Silver Bullet hour", group = grpPlay)
 sbSwingBars = input.int(15, "SB swing lookback (bars)", minval = 5, group = grpPlay)
 tp1AsiaOpp = input.bool(true, "TP1 = Asia opposite side", group = grpPlay)
@@ -107,7 +108,7 @@ requireSMT = input.bool(false, "REQUIRE SMT for reversal signals", group = grpPu
 
 grpElite = "Elite Edge Pack (v5 — desk filter)"
 useHTFDraw   = input.bool(true, "HTF Draw on Liquidity (target pool)", group = grpElite, tooltip = "Only BUY when there is untapped BSL above (draw up). Only SELL when untapped SSL below (draw down). This is the #1 institutional filter.")
-requireDraw  = input.bool(true, "REQUIRE draw in trade direction", group = grpElite)
+requireDraw  = input.bool(false, "REQUIRE draw in trade direction", group = grpElite)
 useHTFPOI    = input.bool(true, "HTF POI alignment (1H FVG shelf)", group = grpElite, tooltip = "LTF entry should sit inside / interact with a higher-timeframe FVG (point of interest).")
 htfPoiTF     = input.timeframe("60", "HTF POI timeframe", group = grpElite)
 requirePOI   = input.bool(false, "REQUIRE HTF POI for signals", group = grpElite)
@@ -121,7 +122,7 @@ useUnicorn   = input.bool(true, "Unicorn model (Breaker + FVG overlap)", group =
 useNDOG      = input.bool(true, "NDOG / NWOG opening gaps", group = grpElite, tooltip = "New Day / New Week opening gaps — institutional magnets.")
 useBPR       = input.bool(true, "BPR (balanced price range)", group = grpElite, tooltip = "Bullish + bearish FVG overlap = high-probability shelf.")
 useTimeConf  = input.bool(true, "Time confluence (:00 / :30 NY)", group = grpElite)
-useNewsBlk   = input.bool(true, "News blackout (CPI / NFP / FOMC windows)", group = grpElite, tooltip = "Manual hard lock — set windows to your broker's CPI/NFP/FOMC print times (NY). Pine has no live calendar feed.")
+useNewsBlk   = input.bool(false, "News blackout (CPI / NFP / FOMC windows)", group = grpElite, tooltip = "Manual hard lock — set windows to your broker's CPI/NFP/FOMC print times (NY). Pine has no live calendar feed.")
 newsSess1    = input.session("0830-0845", "News 1 — CPI/NFP slot (NY)", group = grpElite)
 newsSess2    = input.session("1000-1015", "News 2 — mid-morning slot (NY)", group = grpElite)
 newsSess3    = input.session("1400-1430", "News 3 — FOMC slot (NY)", group = grpElite)
@@ -168,8 +169,10 @@ riskPct     = input.float(1.0, "Risk per trade (% of account)", minval = 0.05, s
 
 grpStrat = "Strategy Tester"
 useStrategyOrders = input.bool(true, "Send orders to Strategy Tester", group = grpStrat, tooltip = "ON = backtestable entries/exits. OFF = chart map only (like the indicator).")
-useEquityRisk = input.bool(true, "Size from strategy equity (else Account size input)", group = grpStrat)
-usePartialTP = input.bool(true, "Scale out 50% at TP1, rest at TP2", group = grpStrat)
+testerLoose = input.bool(true, "TESTER MODE — looser filters (recommended)", group = grpStrat, tooltip = "ON: ignore news blackout, dead hours, Judas/SB/draw requirements so the Strategy Tester can produce trades. Turn OFF for live-discipline study.")
+qtyMode = input.string("Fixed size", "Position sizing", options = ["Fixed size", "Risk % of equity", "Risk % of account input"], group = grpStrat)
+fixedQty = input.float(1.0, "Fixed size (contracts/oz)", minval = 0.01, step = 0.01, group = grpStrat)
+usePartialTP = input.bool(false, "Scale out 50% at TP1, rest at TP2", group = grpStrat)
 closeOpposite = input.bool(true, "Close opposite side before new entry", group = grpStrat)
 minQty = input.float(0.01, "Minimum position size", minval = 0.01, step = 0.01, group = grpStrat)
 maxQty = input.float(50.0, "Maximum position size", minval = 0.01, step = 0.1, group = grpStrat)
@@ -178,15 +181,15 @@ rr1         = input.float(1.0, "TP1 (R multiple)", minval = 0.2, step = 0.25, gr
 tp2Mode     = input.string("Opposite liquidity level", "TP2 Target", options = ["Opposite liquidity level", "Fixed R multiple"], group = grpRisk)
 rr2         = input.float(2.5, "TP2 (R multiple, if fixed)", minval = 0.5, step = 0.25, group = grpRisk)
 maxSigDay   = input.int(3, "Max signals per day", minval = 1, group = grpRisk)
-cooldown    = input.int(30, "Min bars between signals", minval = 0, group = grpRisk)
+cooldown    = input.int(5, "Min bars between signals", minval = 0, group = grpRisk)
 lineExt     = input.int(60, "Extend trade lines for N bars", minval = 5, group = grpRisk)
 
 grpPro = "Risk / Grade Rules"
 usePTJ  = input.bool(false, "PTJ 200-day MA filter (optional)", group = grpPro, tooltip = "Optional. Pure Liquidity mode ignores this as a veto.")
-useRR2  = input.bool(true, "Asymmetric reward filter (TP2 >= N R)", group = grpPro)
+useRR2  = input.bool(false, "Asymmetric reward filter (TP2 >= N R)", group = grpPro)
 minRR2  = input.float(2.0, "TP2 must be at least (R)", minval = 0.5, step = 0.5, group = grpPro)
-gradeMode = input.string("A + B", "Minimum signal grade (confluence)", options = ["A only", "A + B", "All"], group = grpPro, tooltip = "A = 7+, B = 5-6, C = under 5. Liquidity confirmations weight the grade.")
-strictMode = input.string("Hard filters", "Filter mode", options = ["Hard filters", "Score-based (more signals)"], group = grpPro)
+gradeMode = input.string("All", "Minimum signal grade (confluence)", options = ["A only", "A + B", "All"], group = grpPro, tooltip = "A = 7+, B = 5-6, C = under 5. Liquidity confirmations weight the grade.")
+strictMode = input.string("Score-based (more signals)", "Filter mode", options = ["Hard filters", "Score-based (more signals)"], group = grpPro)
 useVolSpike = input.bool(false, "Volume spike on signal candle", group = grpPro, tooltip = "OFF by default — TVC:GOLD has no volume. Use OANDA:XAUUSD for tick volume.")
 volMult = input.float(1.5, "Volume >= x average", minval = 1.0, step = 0.25, group = grpPro)
 volLen  = input.int(20, "Volume average length", minval = 5, group = grpPro)
@@ -198,7 +201,7 @@ volBandLo   = input.float(0.5, "Dead market: ATR below x normal", minval = 0.1, 
 useConflict = input.bool(true, "Stand aside on Bias vs DXY conflict", group = grpStay)
 useFriClose = input.bool(true, "Stand aside late Friday", group = grpStay)
 friSess     = input.session("1500-1700", "Friday close-out window (NY time)", group = grpStay)
-useDeadHrs  = input.bool(true, "Stand aside London close / NY lunch", group = grpStay, tooltip = "Dead hours: London close drift + NY lunch chop.")
+useDeadHrs  = input.bool(false, "Stand aside London close / NY lunch", group = grpStay, tooltip = "Dead hours: London close drift + NY lunch chop.")
 lonCloseSess = input.session("1100-1200", "London close dead window (NY)", group = grpStay)
 nyLunchSess  = input.session("1200-1330", "NY lunch dead window (NY)", group = grpStay)
 useADR      = input.bool(true, "ADR exhaustion: breakouts OFF when day range spent", group = grpStay)
@@ -340,6 +343,16 @@ obLB     = math.max(2, math.round(obLookback / barScale))
 proMode  = entryMode == "MSS + FVG/OB (PRO)"
 fvgMode  = entryMode == "FVG retest" or proMode
 reclaimMode = entryMode == "Reclaim close"
+
+// Strategy Tester overrides (loose mode) — keeps chart map, produces trades
+bool effNewsBlk = useNewsBlk and not testerLoose
+bool effDeadHrs = useDeadHrs and not testerLoose
+bool effReqDaily = requireDailyBias and not testerLoose
+bool effReqJudas = requireJudasPath and not testerLoose
+bool effDispGate = useDispGate and not testerLoose
+bool effReqSB = requireSBModel and not testerLoose
+bool effReqDraw = requireDraw and not testerLoose
+bool effUseRR2 = useRR2 and not testerLoose
 
 // ═══════════════════════════ LEVEL OBJECT ═══════════════════════════
 type LiqLevel
@@ -916,8 +929,8 @@ if array.size(roundLevels) > 0
             drawBSL := f_pickAbove(L.price, drawBSL)
         else
             drawSSL := f_pickBelow(L.price, drawSSL)
-drawLongOK  = not useHTFDraw or not requireDraw or not na(drawBSL)
-drawShortOK = not useHTFDraw or not requireDraw or not na(drawSSL)
+drawLongOK  = not useHTFDraw or not effReqDraw or not na(drawBSL)
+drawShortOK = not useHTFDraw or not effReqDraw or not na(drawSSL)
 string drawTxt = not useHTFDraw ? "Off" : useSimple ? ((not na(drawBSL) ? "Close BUY at " + str.tostring(drawBSL, format.mintick) + " (+$" + str.tostring(drawBSL - close, "#.#") + ")" : "no BUY cash-out yet") + " | " + (not na(drawSSL) ? "Close SELL at " + str.tostring(drawSSL, format.mintick) + " (-$" + str.tostring(close - drawSSL, "#.#") + ")" : "no SELL cash-out yet")) : ((not na(drawBSL) ? "UP " + str.tostring(drawBSL, format.mintick) : "no BSL") + " | " + (not na(drawSSL) ? "DN " + str.tostring(drawSSL, format.mintick) : "no SSL"))
 
 // HTF POI alignment
@@ -962,11 +975,11 @@ nyMin = minute(time, TZ_NY)
 timeConf = not useTimeConf or nyMin == 0 or nyMin == 30
 
 // News blackout (manual CPI/NFP/FOMC windows)
-inNews = useNewsBlk and (not na(time(timeframe.period, newsSess1, TZ_NY)) or not na(time(timeframe.period, newsSess2, TZ_NY)) or not na(time(timeframe.period, newsSess3, TZ_NY)) or (useNews4 and not na(time(timeframe.period, newsSess4, TZ_NY))))
+inNews = effNewsBlk and (not na(time(timeframe.period, newsSess1, TZ_NY)) or not na(time(timeframe.period, newsSess2, TZ_NY)) or not na(time(timeframe.period, newsSess3, TZ_NY)) or (useNews4 and not na(time(timeframe.period, newsSess4, TZ_NY))))
 
 // Dead hours: London close / NY lunch
-inLonClose = useDeadHrs and not na(time(timeframe.period, lonCloseSess, TZ_NY))
-inNyLunch  = useDeadHrs and not na(time(timeframe.period, nyLunchSess, TZ_NY))
+inLonClose = effDeadHrs and not na(time(timeframe.period, lonCloseSess, TZ_NY))
+inNyLunch  = effDeadHrs and not na(time(timeframe.period, nyLunchSess, TZ_NY))
 inDeadHrs  = inLonClose or inNyLunch
 
 // ═══════════════════════════ SESSION HIERARCHY ═══════════════════════════
@@ -1075,8 +1088,8 @@ else if useDailyBias and lockedBias == 0 and not inLondon and leanNow != 0
 int effectiveBias = lockedBias != 0 ? lockedBias : leanNow
 bool dailyBuyLean  = effectiveBias == 1
 bool dailySellLean = effectiveBias == -1
-bool dailyLongOK  = not useDailyBias or not requireDailyBias or dailyBuyLean
-bool dailyShortOK = not useDailyBias or not requireDailyBias or dailySellLean
+bool dailyLongOK  = not useDailyBias or not effReqDaily or dailyBuyLean
+bool dailyShortOK = not useDailyBias or not effReqDaily or dailySellLean
 string dailyBiasTxt = not useDailyBias ? "Off" : dailyBuyLean ? (useSimple ? "BUY ONLY today (discount vs open)" : "BUY day locked") : dailySellLean ? (useSimple ? "SELL ONLY today (premium vs open)" : "SELL day locked") : (useSimple ? "Mixed — no side yet" : "Mixed")
 string dailyOpenTxt = na(biasOpenRef) ? "-" : (belowOpen ? (useSimple ? "Below open = cheaper zone" : "Disc vs open") : aboveOpen ? (useSimple ? "Above open = richer zone" : "Prem vs open") : "At open")
 string midDateTxt = na(midOpenTime) ? (useSimple ? "no date yet" : "-") : str.format_time(midOpenTime, "dd MMM yyyy", TZ_NY)
@@ -1095,16 +1108,16 @@ bool trueJudasBuy  = judasFakeDown and (dailyBuyLean or leanNow == 1 or not useD
 bool trueJudasSell = judasFakeUp and (dailySellLean or leanNow == -1 or not useDailyBias)
 judasBuyPath  = trueJudasBuy
 judasSellPath = trueJudasSell
-judasLongOK  = not requireJudasPath or not inLondon or trueJudasBuy
-judasShortOK = not requireJudasPath or not inLondon or trueJudasSell
+judasLongOK  = not effReqJudas or not inLondon or trueJudasBuy
+judasShortOK = not effReqJudas or not inLondon or trueJudasSell
 string judasTxt = not useJudasWin ? "Off" : inJudasWin and not (trueJudasBuy or trueJudasSell) ? (useSimple ? "Fake-move time (London) — wait for trap" : "Judas window") : trueJudasBuy ? (useSimple ? "Fake DOWN done → look BUY" : "True Judas BUY") : trueJudasSell ? (useSimple ? "Fake UP done → look SELL" : "True Judas SELL") : (useSimple ? "Waiting for fake move" : "Waiting")
 
 // 3) Displacement quality: strong body + must leave FVG
 dispStrong = body >= dispBodyATR * atrVal
 bool bullDispFVG = (low > high[2]) or (low[1] > high[3])
 bool bearDispFVG = (high < low[2]) or (high[1] < low[3])
-dispLongOK  = not useDispGate or (dispStrong and bullCndl and (not requireDispFVG or bullDispFVG))
-dispShortOK = not useDispGate or (dispStrong and bearCndl and (not requireDispFVG or bearDispFVG))
+dispLongOK  = not effDispGate or (dispStrong and bullCndl and (not requireDispFVG or bullDispFVG))
+dispShortOK = not effDispGate or (dispStrong and bearCndl and (not requireDispFVG or bearDispFVG))
 
 // 4) Silver Bullet model: swing sweep in 10-11 → MSS/CHoCH (PRO) → FVG retest
 sbSwingLB = math.max(5, math.round(sbSwingBars / barScale))
@@ -1120,8 +1133,8 @@ if inSB
         sbLoSwept := true
     if not na(sbRefHi) and high > sbRefHi and close < sbRefHi
         sbHiSwept := true
-bool sbModelLongOK  = not sbPlaybook or not inSB or not requireSBModel or sbLoSwept
-bool sbModelShortOK = not sbPlaybook or not inSB or not requireSBModel or sbHiSwept
+bool sbModelLongOK  = not sbPlaybook or not inSB or not effReqSB or sbLoSwept
+bool sbModelShortOK = not sbPlaybook or not inSB or not effReqSB or sbHiSwept
 sbHourOK = not sbOnly or inSB
 string sbTxt = not sbPlaybook ? "Off" : not inSB ? (useSimple ? "Outside best hour (" + sbWinTxt + " NY)" : "Outside") : sbLoSwept and sbHiSwept ? (useSimple ? "Best hour: both sides taken" : "SB both") : sbLoSwept ? (useSimple ? "Best hour: low taken → BUY setup" : "SB SSL") : sbHiSwept ? (useSimple ? "Best hour: high taken → SELL setup" : "SB BSL") : (useSimple ? "Best hour ON — wait for sweep" : "SB wait")
 
@@ -1531,6 +1544,17 @@ if contShortSig and not fireShort
     slShort   := contShortBase + slBufATR * atrVal
     tagShort  := "Cont-Short " + gradeS
 
+// TESTER fallback: session + liquidity sweep reclaim (produces Strategy Tester trades)
+if testerLoose and canSignal and sessionOK and strategy.position_size == 0
+    if not fireLong and anyBull and bullCndl and close > open and (not usePremDisc or inDiscount or not effReqDaily)
+        fireLong := true
+        slLong := (na(armSL) ? low : math.min(low, armSL)) - slBufATR * atrVal
+        tagLong := "Tester BUY " + (sweptLongName != "" ? sweptLongName : "sweep")
+    if not fireShort and anyBear and bearCndl and close < open and (not usePremDisc or inPremium or not effReqDaily)
+        fireShort := true
+        slShort := (na(armSL) ? high : math.max(high, armSL)) + slBufATR * atrVal
+        tagShort := "Tester SELL " + (sweptShortName != "" ? sweptShortName : "sweep")
+
 // ═══════════════════════════ TARGET HELPERS ═══════════════════════════
 f_bestAbove(array<LiqLevel> arr, float curBest) =>
     float best = curBest
@@ -1674,13 +1698,13 @@ if fireLong
         // TP2 runner: draw/PDH liquidity preferred
         float runL = not na(drawBSL) ? drawBSL : opp
         tp2 = tp2Mode == "Opposite liquidity level" and not na(runL) and runL > close + dist ? runL : close + dist * rr2
-        if not useRR2 or (tp2 - close) >= minRR2 * dist
-            float riskBaseL = useEquityRisk ? strategy.equity : accountSize
-            qty = math.max(minQty, math.min(maxQty, (riskBaseL * riskPct / 100) / dist))
-            qtyTxt = str.tostring(qty, "#.##") + " oz"
+        if not effUseRR2 or (tp2 - close) >= minRR2 * dist
+            float riskBaseL = qtyMode == "Risk % of equity" ? strategy.equity : accountSize
+            qty = qtyMode == "Fixed size" ? fixedQty : math.max(minQty, math.min(maxQty, (riskBaseL * riskPct / 100) / dist))
+            qtyTxt = str.tostring(qty, "#.##")
             sigTimeTxt = str.format_time(time, "dd MMM HH:mm", sigTZ)
             f_drawTrade(true, close, slLong, tp1, tp2, qtyTxt, tagLong, sigTimeTxt)
-            if useStrategyOrders
+            if useStrategyOrders and qty > 0 and strategy.position_size <= 0
                 if closeOpposite and strategy.position_size < 0
                     strategy.close("SELL", comment = "flip to BUY")
                 strategy.entry("BUY", strategy.long, qty = qty, comment = tagLong)
@@ -1711,13 +1735,13 @@ if fireShort
         tp1 = tp1AsiaOpp and not na(asiaL) and asiaL < close ? asiaL : tp1Fib027 and not na(fib027S) and fib027S < close ? fib027S : close - dist * rr1
         float runS = not na(drawSSL) ? drawSSL : opp
         tp2 = tp2Mode == "Opposite liquidity level" and not na(runS) and runS < close - dist ? runS : close - dist * rr2
-        if not useRR2 or (close - tp2) >= minRR2 * dist
-            float riskBaseS = useEquityRisk ? strategy.equity : accountSize
-            qty = math.max(minQty, math.min(maxQty, (riskBaseS * riskPct / 100) / dist))
-            qtyTxt = str.tostring(qty, "#.##") + " oz"
+        if not effUseRR2 or (close - tp2) >= minRR2 * dist
+            float riskBaseS = qtyMode == "Risk % of equity" ? strategy.equity : accountSize
+            qty = qtyMode == "Fixed size" ? fixedQty : math.max(minQty, math.min(maxQty, (riskBaseS * riskPct / 100) / dist))
+            qtyTxt = str.tostring(qty, "#.##")
             sigTimeTxt = str.format_time(time, "dd MMM HH:mm", sigTZ)
             f_drawTrade(false, close, slShort, tp1, tp2, qtyTxt, tagShort, sigTimeTxt)
-            if useStrategyOrders
+            if useStrategyOrders and qty > 0 and strategy.position_size >= 0
                 if closeOpposite and strategy.position_size > 0
                     strategy.close("BUY", comment = "flip to SELL")
                 strategy.entry("SELL", strategy.short, qty = qty, comment = tagShort)
@@ -2295,7 +2319,7 @@ if showTable and barstate.islast
     color midMonCol = not useOpens or na(midOpen) ? color.gray : close < midOpen ? tblGood : close > midOpen ? tblBad : color.orange
 
     // ═══════════ LAYOUT (read top → bottom) ═══════════
-    table.cell(t, 0, 0, "GOLD LiqSweep STR v6.7.7", text_color = color.white, bgcolor = color.navy, text_size = size.small)
+    table.cell(t, 0, 0, "GOLD LiqSweep STR v6.7.8", text_color = color.white, bgcolor = color.navy, text_size = size.small)
     table.cell(t, 1, 0, hdrStatus, text_color = color.white, bgcolor = hdrBg, text_size = size.small)
 
     f_tblSec(t, 1, useSimple ? "1) GATE - can I trade now?" : "1) GATE")
@@ -2336,7 +2360,7 @@ if showTable and barstate.islast
     f_tblRow(t, 30, useSimple ? "Research edge (desk)" : "Edge", edgeTxt, tblMute, edgeCol)
     f_tblRow(t, 31, useSimple ? "Ideas today / last" : "Signals", str.tostring(signalsToday) + " / " + str.tostring(maxSigDay) + " · " + (lastTag == "" ? (useSimple ? "no idea yet" : "-") : lastTag + (na(lastEntry) or na(lastSL) or na(lastTP1) ? "" : " · SL " + str.tostring(lastSL, format.mintick) + " · TP " + str.tostring(lastTP1, format.mintick) + " · " + str.tostring(math.abs(lastTP1 - lastEntry) / math.abs(lastEntry - lastSL), "#.#") + "R")), tblMute, tblKey)
     table.cell(t, 0, 32, useSimple ? "How entries work" : "Mode", text_color = tblMute, text_size = size.tiny)
-    table.cell(t, 1, 32, useSimple ? "Research → wait gate → sweep → flip → pullback | STR v6.7.7" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | STR v6.7.7", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
+    table.cell(t, 1, 32, useSimple ? "Research → wait gate → sweep → flip → pullback | STR v6.7.8" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | STR v6.7.8", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 33, useSimple ? "Tools ON" : "Edges", text_color = tblMute, text_size = size.tiny)
     table.cell(t, 1, 33, useSimple ? ((useDailyBias ? "DaySide " : "") + (useJudasWin ? "FakeMove " : "") + (useDispGate ? "StrongPush " : "") + (sbPlaybook ? "BestHour " : "") + (useIPDA ? "20/40Day " : "") + (useSmtES ? "Stocks " : "") + (useDeadHrs ? "SlowHrs " : "") + (useHTFDraw ? "TP-lines " : "") + (useAMD ? "DayStory " : "") + (aPlusMode ? "TopOnly" : "")) : ((useDailyBias ? "DayBias " : "") + (useJudasWin ? "Judas " : "") + (useDispGate ? "DispFVG " : "") + (sbPlaybook ? "SB " : "") + (useIPDA ? "IPDA " : "") + (useSmtES ? "ES " : "") + (useDeadHrs ? "DeadHrs " : "") + (useHTFDraw ? "Draw " : "") + (useAMD ? "AMD " : "") + (aPlusMode ? "A+" : "")), text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 34, useSimple ? "Desk rule" : "Flow", text_color = tblMute, text_size = size.tiny)
