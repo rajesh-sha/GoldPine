@@ -544,150 +544,7 @@ var float prevW_L = na
 var float prevM_H = na
 var float prevM_L = na
 
-if newDay
-    prevD_H := cdH
-    prevD_L := cdL
-    lvlPDH.refresh(na(prevD_H) ? pdh : prevD_H)
-    lvlPDL.refresh(na(prevD_L) ? pdl : prevD_L)
-    if useIPDA
-        if showIPDA
-            lvlIP20H.refresh(ipda20H)
-            lvlIP20L.refresh(ipda20L)
-            lvlIP40H.refresh(ipda40H)
-            lvlIP40L.refresh(ipda40L)
-            lvlIP60H.refresh(ipda60H)
-            lvlIP60L.refresh(ipda60L)
-        else
-            lvlIP20H.price := ipda20H
-            lvlIP20L.price := ipda20L
-            lvlIP40H.price := ipda40H
-            lvlIP40L.price := ipda40L
-            lvlIP60H.price := ipda60H
-            lvlIP60L.price := ipda60L
-            lvlIP20H.armed := true
-            lvlIP20L.armed := true
-            lvlIP40H.armed := true
-            lvlIP40L.armed := true
-            lvlIP60H.armed := true
-            lvlIP60L.armed := true
-    cdH := high
-    cdL := low
-    cdHbar := bar_index
-    cdLbar := bar_index
-    lvlCDH.refresh(na)
-    lvlCDL.refresh(na)
-    if useOpens
-        dayOpen := open
-        dayOpenTime := time
-        if not na(dayOpenLn)
-            line.delete(dayOpenLn)
-        if not na(dayOpenLb)
-            label.delete(dayOpenLb)
-        dayOpenLn := line.new(bar_index, dayOpen, bar_index + 1, dayOpen, extend = extend.right, color = color.rgb(191, 128, 64), width = 1, style = line.style_dotted)
-        dayOpenLb := label.new(bar_index, dayOpen, useSimple ? "DAY OPEN " + str.tostring(dayOpen, format.mintick) + " · comes back here" : "Day-O  " + str.tostring(dayOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(191, 128, 64)), textcolor = f_lblTx(color.rgb(191, 128, 64)), size = size.small)
-else
-    if na(cdH) or high > cdH
-        cdH := high
-        cdHbar := bar_index
-    if na(cdL) or low < cdL
-        cdL := low
-        cdLbar := bar_index
-
-if newWeek
-    prevW_H := cwH
-    prevW_L := cwL
-    lvlPWH.refresh(na(prevW_H) ? pwh : prevW_H)
-    lvlPWL.refresh(na(prevW_L) ? pwl : prevW_L)
-    cwH := high
-    cwL := low
-    cwHbar := bar_index
-    cwLbar := bar_index
-    lvlCWH.refresh(na)
-    lvlCWL.refresh(na)
-    if useOpens
-        weekOpen := open
-        weekOpenTime := time
-        if not na(weekOpenLn)
-            line.delete(weekOpenLn)
-        if not na(weekOpenLb)
-            label.delete(weekOpenLb)
-        weekOpenLn := line.new(bar_index, weekOpen, bar_index + 1, weekOpen, extend = extend.right, color = color.rgb(176, 106, 56), width = 1, style = line.style_dotted)
-        weekOpenLb := label.new(bar_index, weekOpen, useSimple ? "WEEK OPEN " + str.tostring(weekOpen, format.mintick) + " · comes back here" : "Week-O  " + str.tostring(weekOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(176, 106, 56)), textcolor = f_lblTx(color.rgb(176, 106, 56)), size = size.small)
-else
-    if na(cwH) or high > cwH
-        cwH := high
-        cwHbar := bar_index
-    if na(cwL) or low < cwL
-        cwL := low
-        cwLbar := bar_index
-
-// NY day open (first bar of NY calendar day = ICT midnight open when market is live)
-bool newNYMid = newDay
-if useOpens and newNYMid
-    midOpen := open
-    midOpenTime := time
-    if not na(midOpenLn)
-        line.delete(midOpenLn)
-    if not na(midOpenLb)
-        label.delete(midOpenLb)
-    midOpenLn := line.new(bar_index, midOpen, bar_index + 1, midOpen, extend = extend.right, color = color.rgb(255, 152, 0), width = 2, style = line.style_dotted)
-    midOpenLb := label.new(bar_index, midOpen, useSimple ? "NY OPEN " + str.tostring(midOpen, format.mintick) + " · comes back here" : "NY-Mid  " + str.tostring(midOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(255, 152, 0)), textcolor = f_lblTx(color.rgb(255, 152, 0)), size = size.small)
-
-// ── Exchange bells (NY clock; Melb tips on labels) ──
-// LonO 03:00≈17:00 Melb · LonC 11:30≈01:30 Melb · USO 09:30≈23:30 Melb · NYSEC 16:00≈06:00 Melb · AsiaO 21:30≈11:30 Melb
-bool bellLonOpen = useXBells and useLonEqOpen and hour(time, TZ_NY) == 3 and minute(time, TZ_NY) == 0
-bool bellLonClose = useXBells and useLonEqClose and hour(time, TZ_NY) == 11 and minute(time, TZ_NY) == 30
-bool bellUsOpen = useXBells and useUsOpen and hour(time, TZ_NY) == 9 and minute(time, TZ_NY) == 30
-bool bellNyseClose = useXBells and useNyseClose and hour(time, TZ_NY) == 16 and minute(time, TZ_NY) == 0
-bool bellAsiaOpen = useXBells and useAsiaOpen and hour(time, TZ_NY) == 21 and minute(time, TZ_NY) == 30
-
-if bellLonOpen
-    lonOpenPx := open
-    lonOpenTime := time
-    if not na(lonOpenLn)
-        line.delete(lonOpenLn)
-    if not na(lonOpenLb)
-        label.delete(lonOpenLb)
-    lonOpenLn := line.new(bar_index, lonOpenPx, bar_index + 1, lonOpenPx, extend = extend.right, color = color.rgb(30, 136, 229), width = 1, style = line.style_dashed)
-    lonOpenLb := label.new(bar_index, lonOpenPx, useSimple ? "LON OPEN " + str.tostring(lonOpenPx, format.mintick) + " · Europe+Asia roll · comes back here" : "LonEq-O " + str.tostring(lonOpenPx, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(30, 136, 229)), textcolor = f_lblTx(color.rgb(30, 136, 229)), size = size.small)
-if bellLonClose
-    lonClosePx := open
-    lonCloseTime := time
-    if not na(lonCloseLn)
-        line.delete(lonCloseLn)
-    if not na(lonCloseLb)
-        label.delete(lonCloseLb)
-    lonCloseLn := line.new(bar_index, lonClosePx, bar_index + 1, lonClosePx, extend = extend.right, color = color.rgb(25, 118, 210), width = 1, style = line.style_dashed)
-    lonCloseLb := label.new(bar_index, lonClosePx, useSimple ? "LON CLOSE " + str.tostring(lonClosePx, format.mintick) + " · 01:30 Melb · comes back here" : "LonEq-C " + str.tostring(lonClosePx, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(25, 118, 210)), textcolor = f_lblTx(color.rgb(25, 118, 210)), size = size.small)
-if bellUsOpen
-    usOpenPx := open
-    usOpenTime := time
-    if not na(usOpenLn)
-        line.delete(usOpenLn)
-    if not na(usOpenLb)
-        label.delete(usOpenLb)
-    usOpenLn := line.new(bar_index, usOpenPx, bar_index + 1, usOpenPx, extend = extend.right, color = color.rgb(156, 39, 176), width = 1, style = line.style_dashed)
-    usOpenLb := label.new(bar_index, usOpenPx, useSimple ? "US OPEN " + str.tostring(usOpenPx, format.mintick) + " · 23:30 Melb · comes back here" : "USEq-O " + str.tostring(usOpenPx, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(156, 39, 176)), textcolor = f_lblTx(color.rgb(156, 39, 176)), size = size.small)
-if bellNyseClose
-    nyseClosePx := open
-    nyseCloseTime := time
-    if not na(nyseCloseLn)
-        line.delete(nyseCloseLn)
-    if not na(nyseCloseLb)
-        label.delete(nyseCloseLb)
-    nyseCloseLn := line.new(bar_index, nyseClosePx, bar_index + 1, nyseClosePx, extend = extend.right, color = color.rgb(123, 31, 162), width = 1, style = line.style_dashed)
-    nyseCloseLb := label.new(bar_index, nyseClosePx, useSimple ? "NYSE CLOSE " + str.tostring(nyseClosePx, format.mintick) + " · US cash end · comes back here" : "NYSE-C " + str.tostring(nyseClosePx, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(123, 31, 162)), textcolor = f_lblTx(color.rgb(123, 31, 162)), size = size.small)
-if bellAsiaOpen
-    asiaOpenPx := open
-    asiaOpenTime := time
-    if not na(asiaOpenLn)
-        line.delete(asiaOpenLn)
-    if not na(asiaOpenLb)
-        label.delete(asiaOpenLb)
-    asiaOpenLn := line.new(bar_index, asiaOpenPx, bar_index + 1, asiaOpenPx, extend = extend.right, color = color.rgb(0, 150, 136), width = 1, style = line.style_dashed)
-    asiaOpenLb := label.new(bar_index, asiaOpenPx, useSimple ? "ASIA OPEN " + str.tostring(asiaOpenPx, format.mintick) + " · HK pack · comes back here" : "Asia-O " + str.tostring(asiaOpenPx, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(0, 150, 136)), textcolor = f_lblTx(color.rgb(0, 150, 136)), size = size.small)
-
-// ── NDOG / NWOG (New Day / New Week Opening Gaps) ──
+// NDOG/NWOG + Asia state (hoisted; updates in f_syncSessionLevels / day+bells split)
 var float ndogTop = na
 var float ndogBot = na
 var float nwogTop = na
@@ -696,69 +553,599 @@ var box ndogBox = na
 var box nwogBox = na
 var label ndogLb = na
 var label nwogLb = na
-if useNDOG and newDay
-    float pdc = close[1]
-    if open != pdc
-        ndogTop := math.max(open, pdc)
-        ndogBot := math.min(open, pdc)
-        if not na(ndogBox)
-            box.delete(ndogBox)
-        if not na(ndogLb)
-            label.delete(ndogLb)
-        if showEliteVis and ndogTop - ndogBot >= syminfo.mintick
-            ndogBox := box.new(bar_index, ndogTop, bar_index + 40, ndogBot, border_color = color.rgb(191, 128, 64), bgcolor = color.new(color.rgb(191, 128, 64), 82), text = useSimple ? "DAY GAP" : "NDOG", text_color = color.white)
-            ndogLb := label.new(bar_index + 8, ndogTop, useSimple ? "Day gap — price often fills this" : "NDOG", style = label.style_label_left, color = f_lblBg(color.rgb(191, 128, 64)), textcolor = f_lblTx(color.rgb(191, 128, 64)), size = size.small)
-if useNDOG and newWeek
-    float pwc = close[1]
-    if open != pwc
-        nwogTop := math.max(open, pwc)
-        nwogBot := math.min(open, pwc)
-        if not na(nwogBox)
-            box.delete(nwogBox)
-        if not na(nwogLb)
-            label.delete(nwogLb)
-        if showEliteVis and nwogTop - nwogBot >= syminfo.mintick
-            nwogBox := box.new(bar_index, nwogTop, bar_index + 80, nwogBot, border_color = color.rgb(176, 106, 56), bgcolor = color.new(color.rgb(176, 106, 56), 82), text = useSimple ? "WEEK GAP" : "NWOG", text_color = color.white)
-            nwogLb := label.new(bar_index + 8, nwogTop, useSimple ? "Week gap — price often fills this" : "NWOG", style = label.style_label_left, color = f_lblBg(color.rgb(176, 106, 56)), textcolor = f_lblTx(color.rgb(176, 106, 56)), size = size.small)
-nearNDOG = useNDOG and not na(ndogTop) and high >= ndogBot and low <= ndogTop
-nearNWOG = useNDOG and not na(nwogTop) and high >= nwogBot and low <= nwogTop
-
-if newMonth
-    prevM_H := cmH
-    prevM_L := cmL
-    lvlPMH.refresh(na(prevM_H) ? pmh : prevM_H)
-    lvlPML.refresh(na(prevM_L) ? pml : prevM_L)
-    cmH := high
-    cmL := low
-else
-    if na(cmH) or high > cmH
-        cmH := high
-    if na(cmL) or low < cmL
-        cmL := low
-
-if useCD
-    if not na(cdH) and bar_index - cdHbar == holdB
-        lvlCDH.refresh(cdH)
-    if not na(cdL) and bar_index - cdLbar == holdB
-        lvlCDL.refresh(cdL)
-if useCW
-    if not na(cwH) and bar_index - cwHbar == holdB
-        lvlCWH.refresh(cwH)
-    if not na(cwL) and bar_index - cwLbar == holdB
-        lvlCWL.refresh(cwL)
-
-inAsia = not na(time(timeframe.period, asiaSess, TZ_NY))
 var float asiaH = na
 var float asiaL = na
-if inAsia and not inAsia[1]
-    asiaH := high
-    asiaL := low
-else if inAsia
-    asiaH := math.max(asiaH, high)
-    asiaL := math.min(asiaL, low)
-if inAsia[1] and not inAsia
-    lvlAsiaH.refresh(asiaH)
-    lvlAsiaL.refresh(asiaL)
+
+type LevelSnap
+    float prevD_H
+    float prevD_L
+    float cdH
+    float cdL
+    int cdHbar
+    int cdLbar
+    float dayOpen
+    int dayOpenTime
+    line dayOpenLn
+    label dayOpenLb
+    float prevW_H
+    float prevW_L
+    float cwH
+    float cwL
+    int cwHbar
+    int cwLbar
+    float weekOpen
+    int weekOpenTime
+    line weekOpenLn
+    label weekOpenLb
+    float midOpen
+    int midOpenTime
+    line midOpenLn
+    label midOpenLb
+    float lonOpenPx
+    int lonOpenTime
+    line lonOpenLn
+    label lonOpenLb
+    float lonClosePx
+    int lonCloseTime
+    line lonCloseLn
+    label lonCloseLb
+    float usOpenPx
+    int usOpenTime
+    line usOpenLn
+    label usOpenLb
+    float nyseClosePx
+    int nyseCloseTime
+    line nyseCloseLn
+    label nyseCloseLb
+    float asiaOpenPx
+    int asiaOpenTime
+    line asiaOpenLn
+    label asiaOpenLb
+    float ndogTop
+    float ndogBot
+    float nwogTop
+    float nwogBot
+    box ndogBox
+    box nwogBox
+    label ndogLb
+    label nwogLb
+    float prevM_H
+    float prevM_L
+    float cmH
+    float cmL
+    float asiaH
+    float asiaL
+    bool nearNDOG
+    bool nearNWOG
+    bool inAsia
+
+f_syncDayWeekOpens() =>
+    float v_prevD_H = prevD_H
+    float v_prevD_L = prevD_L
+    float v_cdH = cdH
+    float v_cdL = cdL
+    int v_cdHbar = cdHbar
+    int v_cdLbar = cdLbar
+    float v_dayOpen = dayOpen
+    int v_dayOpenTime = dayOpenTime
+    line v_dayOpenLn = dayOpenLn
+    label v_dayOpenLb = dayOpenLb
+    float v_prevW_H = prevW_H
+    float v_prevW_L = prevW_L
+    float v_cwH = cwH
+    float v_cwL = cwL
+    int v_cwHbar = cwHbar
+    int v_cwLbar = cwLbar
+    float v_weekOpen = weekOpen
+    int v_weekOpenTime = weekOpenTime
+    line v_weekOpenLn = weekOpenLn
+    label v_weekOpenLb = weekOpenLb
+    float v_midOpen = midOpen
+    int v_midOpenTime = midOpenTime
+    line v_midOpenLn = midOpenLn
+    label v_midOpenLb = midOpenLb
+    float v_lonOpenPx = lonOpenPx
+    int v_lonOpenTime = lonOpenTime
+    line v_lonOpenLn = lonOpenLn
+    label v_lonOpenLb = lonOpenLb
+    float v_lonClosePx = lonClosePx
+    int v_lonCloseTime = lonCloseTime
+    line v_lonCloseLn = lonCloseLn
+    label v_lonCloseLb = lonCloseLb
+    float v_usOpenPx = usOpenPx
+    int v_usOpenTime = usOpenTime
+    line v_usOpenLn = usOpenLn
+    label v_usOpenLb = usOpenLb
+    float v_nyseClosePx = nyseClosePx
+    int v_nyseCloseTime = nyseCloseTime
+    line v_nyseCloseLn = nyseCloseLn
+    label v_nyseCloseLb = nyseCloseLb
+    float v_asiaOpenPx = asiaOpenPx
+    int v_asiaOpenTime = asiaOpenTime
+    line v_asiaOpenLn = asiaOpenLn
+    label v_asiaOpenLb = asiaOpenLb
+    float v_ndogTop = ndogTop
+    float v_ndogBot = ndogBot
+    float v_nwogTop = nwogTop
+    float v_nwogBot = nwogBot
+    box v_ndogBox = ndogBox
+    box v_nwogBox = nwogBox
+    label v_ndogLb = ndogLb
+    label v_nwogLb = nwogLb
+    float v_prevM_H = prevM_H
+    float v_prevM_L = prevM_L
+    float v_cmH = cmH
+    float v_cmL = cmL
+    float v_asiaH = asiaH
+    float v_asiaL = asiaL
+    bool v_nearNDOG = false
+    bool v_nearNWOG = false
+    bool v_inAsia = false
+
+    if newDay
+        v_prevD_H := v_cdH
+        v_prevD_L := v_cdL
+        lvlPDH.refresh(na(v_prevD_H) ? pdh : v_prevD_H)
+        lvlPDL.refresh(na(v_prevD_L) ? pdl : v_prevD_L)
+        if useIPDA
+            if showIPDA
+                lvlIP20H.refresh(ipda20H)
+                lvlIP20L.refresh(ipda20L)
+                lvlIP40H.refresh(ipda40H)
+                lvlIP40L.refresh(ipda40L)
+                lvlIP60H.refresh(ipda60H)
+                lvlIP60L.refresh(ipda60L)
+            else
+                lvlIP20H.price := ipda20H
+                lvlIP20L.price := ipda20L
+                lvlIP40H.price := ipda40H
+                lvlIP40L.price := ipda40L
+                lvlIP60H.price := ipda60H
+                lvlIP60L.price := ipda60L
+                lvlIP20H.armed := true
+                lvlIP20L.armed := true
+                lvlIP40H.armed := true
+                lvlIP40L.armed := true
+                lvlIP60H.armed := true
+                lvlIP60L.armed := true
+        v_cdH := high
+        v_cdL := low
+        v_cdHbar := bar_index
+        v_cdLbar := bar_index
+        lvlCDH.refresh(na)
+        lvlCDL.refresh(na)
+        if useOpens
+            v_dayOpen := open
+            v_dayOpenTime := time
+            if not na(v_dayOpenLn)
+                line.delete(v_dayOpenLn)
+            if not na(v_dayOpenLb)
+                label.delete(v_dayOpenLb)
+            v_dayOpenLn := line.new(bar_index, v_dayOpen, bar_index + 1, v_dayOpen, extend = extend.right, color = color.rgb(191, 128, 64), width = 1, style = line.style_dotted)
+            v_dayOpenLb := label.new(bar_index, v_dayOpen, useSimple ? "DAY OPEN " + str.tostring(v_dayOpen, format.mintick) + " · comes back here" : "Day-O  " + str.tostring(v_dayOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(191, 128, 64)), textcolor = f_lblTx(color.rgb(191, 128, 64)), size = size.small)
+    else
+        if na(v_cdH) or high > v_cdH
+            v_cdH := high
+            v_cdHbar := bar_index
+        if na(v_cdL) or low < v_cdL
+            v_cdL := low
+            v_cdLbar := bar_index
+
+    if newWeek
+        v_prevW_H := v_cwH
+        v_prevW_L := v_cwL
+        lvlPWH.refresh(na(v_prevW_H) ? pwh : v_prevW_H)
+        lvlPWL.refresh(na(v_prevW_L) ? pwl : v_prevW_L)
+        v_cwH := high
+        v_cwL := low
+        v_cwHbar := bar_index
+        v_cwLbar := bar_index
+        lvlCWH.refresh(na)
+        lvlCWL.refresh(na)
+        if useOpens
+            v_weekOpen := open
+            v_weekOpenTime := time
+            if not na(v_weekOpenLn)
+                line.delete(v_weekOpenLn)
+            if not na(v_weekOpenLb)
+                label.delete(v_weekOpenLb)
+            v_weekOpenLn := line.new(bar_index, v_weekOpen, bar_index + 1, v_weekOpen, extend = extend.right, color = color.rgb(176, 106, 56), width = 1, style = line.style_dotted)
+            v_weekOpenLb := label.new(bar_index, v_weekOpen, useSimple ? "WEEK OPEN " + str.tostring(v_weekOpen, format.mintick) + " · comes back here" : "Week-O  " + str.tostring(v_weekOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(176, 106, 56)), textcolor = f_lblTx(color.rgb(176, 106, 56)), size = size.small)
+    else
+        if na(v_cwH) or high > v_cwH
+            v_cwH := high
+            v_cwHbar := bar_index
+        if na(v_cwL) or low < v_cwL
+            v_cwL := low
+            v_cwLbar := bar_index
+
+    // NY day open (first bar of NY calendar day = ICT midnight open when market is live)
+    bool newNYMid = newDay
+    if useOpens and newNYMid
+        v_midOpen := open
+        v_midOpenTime := time
+        if not na(v_midOpenLn)
+            line.delete(v_midOpenLn)
+        if not na(v_midOpenLb)
+            label.delete(v_midOpenLb)
+        v_midOpenLn := line.new(bar_index, v_midOpen, bar_index + 1, v_midOpen, extend = extend.right, color = color.rgb(255, 152, 0), width = 2, style = line.style_dotted)
+        v_midOpenLb := label.new(bar_index, v_midOpen, useSimple ? "NY OPEN " + str.tostring(v_midOpen, format.mintick) + " · comes back here" : "NY-Mid  " + str.tostring(v_midOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(255, 152, 0)), textcolor = f_lblTx(color.rgb(255, 152, 0)), size = size.small)
+
+
+    LevelSnap o = LevelSnap.new()
+    o.prevD_H := v_prevD_H
+    o.prevD_L := v_prevD_L
+    o.cdH := v_cdH
+    o.cdL := v_cdL
+    o.cdHbar := v_cdHbar
+    o.cdLbar := v_cdLbar
+    o.dayOpen := v_dayOpen
+    o.dayOpenTime := v_dayOpenTime
+    o.dayOpenLn := v_dayOpenLn
+    o.dayOpenLb := v_dayOpenLb
+    o.prevW_H := v_prevW_H
+    o.prevW_L := v_prevW_L
+    o.cwH := v_cwH
+    o.cwL := v_cwL
+    o.cwHbar := v_cwHbar
+    o.cwLbar := v_cwLbar
+    o.weekOpen := v_weekOpen
+    o.weekOpenTime := v_weekOpenTime
+    o.weekOpenLn := v_weekOpenLn
+    o.weekOpenLb := v_weekOpenLb
+    o.midOpen := v_midOpen
+    o.midOpenTime := v_midOpenTime
+    o.midOpenLn := v_midOpenLn
+    o.midOpenLb := v_midOpenLb
+    o.lonOpenPx := v_lonOpenPx
+    o.lonOpenTime := v_lonOpenTime
+    o.lonOpenLn := v_lonOpenLn
+    o.lonOpenLb := v_lonOpenLb
+    o.lonClosePx := v_lonClosePx
+    o.lonCloseTime := v_lonCloseTime
+    o.lonCloseLn := v_lonCloseLn
+    o.lonCloseLb := v_lonCloseLb
+    o.usOpenPx := v_usOpenPx
+    o.usOpenTime := v_usOpenTime
+    o.usOpenLn := v_usOpenLn
+    o.usOpenLb := v_usOpenLb
+    o.nyseClosePx := v_nyseClosePx
+    o.nyseCloseTime := v_nyseCloseTime
+    o.nyseCloseLn := v_nyseCloseLn
+    o.nyseCloseLb := v_nyseCloseLb
+    o.asiaOpenPx := v_asiaOpenPx
+    o.asiaOpenTime := v_asiaOpenTime
+    o.asiaOpenLn := v_asiaOpenLn
+    o.asiaOpenLb := v_asiaOpenLb
+    o.ndogTop := v_ndogTop
+    o.ndogBot := v_ndogBot
+    o.nwogTop := v_nwogTop
+    o.nwogBot := v_nwogBot
+    o.ndogBox := v_ndogBox
+    o.nwogBox := v_nwogBox
+    o.ndogLb := v_ndogLb
+    o.nwogLb := v_nwogLb
+    o.prevM_H := v_prevM_H
+    o.prevM_L := v_prevM_L
+    o.cmH := v_cmH
+    o.cmL := v_cmL
+    o.asiaH := v_asiaH
+    o.asiaL := v_asiaL
+    o.nearNDOG := v_nearNDOG
+    o.nearNWOG := v_nearNWOG
+    o.inAsia := v_inAsia
+    o
+
+f_syncBellsGapsAsia(LevelSnap a) =>
+    float v_prevD_H = a.prevD_H
+    float v_prevD_L = a.prevD_L
+    float v_cdH = a.cdH
+    float v_cdL = a.cdL
+    int v_cdHbar = a.cdHbar
+    int v_cdLbar = a.cdLbar
+    float v_dayOpen = a.dayOpen
+    int v_dayOpenTime = a.dayOpenTime
+    line v_dayOpenLn = a.dayOpenLn
+    label v_dayOpenLb = a.dayOpenLb
+    float v_prevW_H = a.prevW_H
+    float v_prevW_L = a.prevW_L
+    float v_cwH = a.cwH
+    float v_cwL = a.cwL
+    int v_cwHbar = a.cwHbar
+    int v_cwLbar = a.cwLbar
+    float v_weekOpen = a.weekOpen
+    int v_weekOpenTime = a.weekOpenTime
+    line v_weekOpenLn = a.weekOpenLn
+    label v_weekOpenLb = a.weekOpenLb
+    float v_midOpen = a.midOpen
+    int v_midOpenTime = a.midOpenTime
+    line v_midOpenLn = a.midOpenLn
+    label v_midOpenLb = a.midOpenLb
+    float v_lonOpenPx = a.lonOpenPx
+    int v_lonOpenTime = a.lonOpenTime
+    line v_lonOpenLn = a.lonOpenLn
+    label v_lonOpenLb = a.lonOpenLb
+    float v_lonClosePx = a.lonClosePx
+    int v_lonCloseTime = a.lonCloseTime
+    line v_lonCloseLn = a.lonCloseLn
+    label v_lonCloseLb = a.lonCloseLb
+    float v_usOpenPx = a.usOpenPx
+    int v_usOpenTime = a.usOpenTime
+    line v_usOpenLn = a.usOpenLn
+    label v_usOpenLb = a.usOpenLb
+    float v_nyseClosePx = a.nyseClosePx
+    int v_nyseCloseTime = a.nyseCloseTime
+    line v_nyseCloseLn = a.nyseCloseLn
+    label v_nyseCloseLb = a.nyseCloseLb
+    float v_asiaOpenPx = a.asiaOpenPx
+    int v_asiaOpenTime = a.asiaOpenTime
+    line v_asiaOpenLn = a.asiaOpenLn
+    label v_asiaOpenLb = a.asiaOpenLb
+    float v_ndogTop = a.ndogTop
+    float v_ndogBot = a.ndogBot
+    float v_nwogTop = a.nwogTop
+    float v_nwogBot = a.nwogBot
+    box v_ndogBox = a.ndogBox
+    box v_nwogBox = a.nwogBox
+    label v_ndogLb = a.ndogLb
+    label v_nwogLb = a.nwogLb
+    float v_prevM_H = a.prevM_H
+    float v_prevM_L = a.prevM_L
+    float v_cmH = a.cmH
+    float v_cmL = a.cmL
+    float v_asiaH = a.asiaH
+    float v_asiaL = a.asiaL
+    bool v_nearNDOG = a.nearNDOG
+    bool v_nearNWOG = a.nearNWOG
+    bool v_inAsia = a.inAsia
+
+    // ── Exchange bells (NY clock; Melb tips on labels) ──
+    // LonO 03:00≈17:00 Melb · LonC 11:30≈01:30 Melb · USO 09:30≈23:30 Melb · NYSEC 16:00≈06:00 Melb · AsiaO 21:30≈11:30 Melb
+    bool bellLonOpen = useXBells and useLonEqOpen and hour(time, TZ_NY) == 3 and minute(time, TZ_NY) == 0
+    bool bellLonClose = useXBells and useLonEqClose and hour(time, TZ_NY) == 11 and minute(time, TZ_NY) == 30
+    bool bellUsOpen = useXBells and useUsOpen and hour(time, TZ_NY) == 9 and minute(time, TZ_NY) == 30
+    bool bellNyseClose = useXBells and useNyseClose and hour(time, TZ_NY) == 16 and minute(time, TZ_NY) == 0
+    bool bellAsiaOpen = useXBells and useAsiaOpen and hour(time, TZ_NY) == 21 and minute(time, TZ_NY) == 30
+
+    if bellLonOpen
+        v_lonOpenPx := open
+        v_lonOpenTime := time
+        if not na(v_lonOpenLn)
+            line.delete(v_lonOpenLn)
+        if not na(v_lonOpenLb)
+            label.delete(v_lonOpenLb)
+        v_lonOpenLn := line.new(bar_index, v_lonOpenPx, bar_index + 1, v_lonOpenPx, extend = extend.right, color = color.rgb(30, 136, 229), width = 1, style = line.style_dashed)
+        v_lonOpenLb := label.new(bar_index, v_lonOpenPx, useSimple ? "LON OPEN " + str.tostring(v_lonOpenPx, format.mintick) + " · Europe+Asia roll · comes back here" : "LonEq-O " + str.tostring(v_lonOpenPx, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(30, 136, 229)), textcolor = f_lblTx(color.rgb(30, 136, 229)), size = size.small)
+    if bellLonClose
+        v_lonClosePx := open
+        v_lonCloseTime := time
+        if not na(v_lonCloseLn)
+            line.delete(v_lonCloseLn)
+        if not na(v_lonCloseLb)
+            label.delete(v_lonCloseLb)
+        v_lonCloseLn := line.new(bar_index, v_lonClosePx, bar_index + 1, v_lonClosePx, extend = extend.right, color = color.rgb(25, 118, 210), width = 1, style = line.style_dashed)
+        v_lonCloseLb := label.new(bar_index, v_lonClosePx, useSimple ? "LON CLOSE " + str.tostring(v_lonClosePx, format.mintick) + " · 01:30 Melb · comes back here" : "LonEq-C " + str.tostring(v_lonClosePx, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(25, 118, 210)), textcolor = f_lblTx(color.rgb(25, 118, 210)), size = size.small)
+    if bellUsOpen
+        v_usOpenPx := open
+        v_usOpenTime := time
+        if not na(v_usOpenLn)
+            line.delete(v_usOpenLn)
+        if not na(v_usOpenLb)
+            label.delete(v_usOpenLb)
+        v_usOpenLn := line.new(bar_index, v_usOpenPx, bar_index + 1, v_usOpenPx, extend = extend.right, color = color.rgb(156, 39, 176), width = 1, style = line.style_dashed)
+        v_usOpenLb := label.new(bar_index, v_usOpenPx, useSimple ? "US OPEN " + str.tostring(v_usOpenPx, format.mintick) + " · 23:30 Melb · comes back here" : "USEq-O " + str.tostring(v_usOpenPx, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(156, 39, 176)), textcolor = f_lblTx(color.rgb(156, 39, 176)), size = size.small)
+    if bellNyseClose
+        v_nyseClosePx := open
+        v_nyseCloseTime := time
+        if not na(v_nyseCloseLn)
+            line.delete(v_nyseCloseLn)
+        if not na(v_nyseCloseLb)
+            label.delete(v_nyseCloseLb)
+        v_nyseCloseLn := line.new(bar_index, v_nyseClosePx, bar_index + 1, v_nyseClosePx, extend = extend.right, color = color.rgb(123, 31, 162), width = 1, style = line.style_dashed)
+        v_nyseCloseLb := label.new(bar_index, v_nyseClosePx, useSimple ? "NYSE CLOSE " + str.tostring(v_nyseClosePx, format.mintick) + " · US cash end · comes back here" : "NYSE-C " + str.tostring(v_nyseClosePx, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(123, 31, 162)), textcolor = f_lblTx(color.rgb(123, 31, 162)), size = size.small)
+    if bellAsiaOpen
+        v_asiaOpenPx := open
+        v_asiaOpenTime := time
+        if not na(v_asiaOpenLn)
+            line.delete(v_asiaOpenLn)
+        if not na(v_asiaOpenLb)
+            label.delete(v_asiaOpenLb)
+        v_asiaOpenLn := line.new(bar_index, v_asiaOpenPx, bar_index + 1, v_asiaOpenPx, extend = extend.right, color = color.rgb(0, 150, 136), width = 1, style = line.style_dashed)
+        v_asiaOpenLb := label.new(bar_index, v_asiaOpenPx, useSimple ? "ASIA OPEN " + str.tostring(v_asiaOpenPx, format.mintick) + " · HK pack · comes back here" : "Asia-O " + str.tostring(v_asiaOpenPx, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(0, 150, 136)), textcolor = f_lblTx(color.rgb(0, 150, 136)), size = size.small)
+
+    // ── NDOG / NWOG (New Day / New Week Opening Gaps) ──
+    if useNDOG and newDay
+        float pdc = close[1]
+        if open != pdc
+            v_ndogTop := math.max(open, pdc)
+            v_ndogBot := math.min(open, pdc)
+            if not na(v_ndogBox)
+                box.delete(v_ndogBox)
+            if not na(v_ndogLb)
+                label.delete(v_ndogLb)
+            if showEliteVis and v_ndogTop - v_ndogBot >= syminfo.mintick
+                v_ndogBox := box.new(bar_index, v_ndogTop, bar_index + 40, v_ndogBot, border_color = color.rgb(191, 128, 64), bgcolor = color.new(color.rgb(191, 128, 64), 82), text = useSimple ? "DAY GAP" : "NDOG", text_color = color.white)
+                v_ndogLb := label.new(bar_index + 8, v_ndogTop, useSimple ? "Day gap — price often fills this" : "NDOG", style = label.style_label_left, color = f_lblBg(color.rgb(191, 128, 64)), textcolor = f_lblTx(color.rgb(191, 128, 64)), size = size.small)
+    if useNDOG and newWeek
+        float pwc = close[1]
+        if open != pwc
+            v_nwogTop := math.max(open, pwc)
+            v_nwogBot := math.min(open, pwc)
+            if not na(v_nwogBox)
+                box.delete(v_nwogBox)
+            if not na(v_nwogLb)
+                label.delete(v_nwogLb)
+            if showEliteVis and v_nwogTop - v_nwogBot >= syminfo.mintick
+                v_nwogBox := box.new(bar_index, v_nwogTop, bar_index + 80, v_nwogBot, border_color = color.rgb(176, 106, 56), bgcolor = color.new(color.rgb(176, 106, 56), 82), text = useSimple ? "WEEK GAP" : "NWOG", text_color = color.white)
+                v_nwogLb := label.new(bar_index + 8, v_nwogTop, useSimple ? "Week gap — price often fills this" : "NWOG", style = label.style_label_left, color = f_lblBg(color.rgb(176, 106, 56)), textcolor = f_lblTx(color.rgb(176, 106, 56)), size = size.small)
+    v_nearNDOG := useNDOG and not na(v_ndogTop) and high >= v_ndogBot and low <= v_ndogTop
+    v_nearNWOG := useNDOG and not na(v_nwogTop) and high >= v_nwogBot and low <= v_nwogTop
+
+    if newMonth
+        v_prevM_H := v_cmH
+        v_prevM_L := v_cmL
+        lvlPMH.refresh(na(v_prevM_H) ? pmh : v_prevM_H)
+        lvlPML.refresh(na(v_prevM_L) ? pml : v_prevM_L)
+        v_cmH := high
+        v_cmL := low
+    else
+        if na(v_cmH) or high > v_cmH
+            v_cmH := high
+        if na(v_cmL) or low < v_cmL
+            v_cmL := low
+
+    if useCD
+        if not na(v_cdH) and bar_index - v_cdHbar == holdB
+            lvlCDH.refresh(v_cdH)
+        if not na(v_cdL) and bar_index - v_cdLbar == holdB
+            lvlCDL.refresh(v_cdL)
+    if useCW
+        if not na(v_cwH) and bar_index - v_cwHbar == holdB
+            lvlCWH.refresh(v_cwH)
+        if not na(v_cwL) and bar_index - v_cwLbar == holdB
+            lvlCWL.refresh(v_cwL)
+
+    v_inAsia := not na(time(timeframe.period, asiaSess, TZ_NY))
+    if v_inAsia and not v_inAsia[1]
+        v_asiaH := high
+        v_asiaL := low
+    else if v_inAsia
+        v_asiaH := math.max(v_asiaH, high)
+        v_asiaL := math.min(v_asiaL, low)
+    if v_inAsia[1] and not v_inAsia
+        lvlAsiaH.refresh(v_asiaH)
+        lvlAsiaL.refresh(v_asiaL)
+
+
+    LevelSnap o = LevelSnap.new()
+    o.prevD_H := v_prevD_H
+    o.prevD_L := v_prevD_L
+    o.cdH := v_cdH
+    o.cdL := v_cdL
+    o.cdHbar := v_cdHbar
+    o.cdLbar := v_cdLbar
+    o.dayOpen := v_dayOpen
+    o.dayOpenTime := v_dayOpenTime
+    o.dayOpenLn := v_dayOpenLn
+    o.dayOpenLb := v_dayOpenLb
+    o.prevW_H := v_prevW_H
+    o.prevW_L := v_prevW_L
+    o.cwH := v_cwH
+    o.cwL := v_cwL
+    o.cwHbar := v_cwHbar
+    o.cwLbar := v_cwLbar
+    o.weekOpen := v_weekOpen
+    o.weekOpenTime := v_weekOpenTime
+    o.weekOpenLn := v_weekOpenLn
+    o.weekOpenLb := v_weekOpenLb
+    o.midOpen := v_midOpen
+    o.midOpenTime := v_midOpenTime
+    o.midOpenLn := v_midOpenLn
+    o.midOpenLb := v_midOpenLb
+    o.lonOpenPx := v_lonOpenPx
+    o.lonOpenTime := v_lonOpenTime
+    o.lonOpenLn := v_lonOpenLn
+    o.lonOpenLb := v_lonOpenLb
+    o.lonClosePx := v_lonClosePx
+    o.lonCloseTime := v_lonCloseTime
+    o.lonCloseLn := v_lonCloseLn
+    o.lonCloseLb := v_lonCloseLb
+    o.usOpenPx := v_usOpenPx
+    o.usOpenTime := v_usOpenTime
+    o.usOpenLn := v_usOpenLn
+    o.usOpenLb := v_usOpenLb
+    o.nyseClosePx := v_nyseClosePx
+    o.nyseCloseTime := v_nyseCloseTime
+    o.nyseCloseLn := v_nyseCloseLn
+    o.nyseCloseLb := v_nyseCloseLb
+    o.asiaOpenPx := v_asiaOpenPx
+    o.asiaOpenTime := v_asiaOpenTime
+    o.asiaOpenLn := v_asiaOpenLn
+    o.asiaOpenLb := v_asiaOpenLb
+    o.ndogTop := v_ndogTop
+    o.ndogBot := v_ndogBot
+    o.nwogTop := v_nwogTop
+    o.nwogBot := v_nwogBot
+    o.ndogBox := v_ndogBox
+    o.nwogBox := v_nwogBox
+    o.ndogLb := v_ndogLb
+    o.nwogLb := v_nwogLb
+    o.prevM_H := v_prevM_H
+    o.prevM_L := v_prevM_L
+    o.cmH := v_cmH
+    o.cmL := v_cmL
+    o.asiaH := v_asiaH
+    o.asiaL := v_asiaL
+    o.nearNDOG := v_nearNDOG
+    o.nearNWOG := v_nearNWOG
+    o.inAsia := v_inAsia
+    o
+
+f_syncSessionLevels() =>
+    f_syncBellsGapsAsia(f_syncDayWeekOpens())
+
+LevelSnap ls = f_syncSessionLevels()
+prevD_H := ls.prevD_H
+prevD_L := ls.prevD_L
+cdH := ls.cdH
+cdL := ls.cdL
+cdHbar := ls.cdHbar
+cdLbar := ls.cdLbar
+dayOpen := ls.dayOpen
+dayOpenTime := ls.dayOpenTime
+dayOpenLn := ls.dayOpenLn
+dayOpenLb := ls.dayOpenLb
+prevW_H := ls.prevW_H
+prevW_L := ls.prevW_L
+cwH := ls.cwH
+cwL := ls.cwL
+cwHbar := ls.cwHbar
+cwLbar := ls.cwLbar
+weekOpen := ls.weekOpen
+weekOpenTime := ls.weekOpenTime
+weekOpenLn := ls.weekOpenLn
+weekOpenLb := ls.weekOpenLb
+midOpen := ls.midOpen
+midOpenTime := ls.midOpenTime
+midOpenLn := ls.midOpenLn
+midOpenLb := ls.midOpenLb
+lonOpenPx := ls.lonOpenPx
+lonOpenTime := ls.lonOpenTime
+lonOpenLn := ls.lonOpenLn
+lonOpenLb := ls.lonOpenLb
+lonClosePx := ls.lonClosePx
+lonCloseTime := ls.lonCloseTime
+lonCloseLn := ls.lonCloseLn
+lonCloseLb := ls.lonCloseLb
+usOpenPx := ls.usOpenPx
+usOpenTime := ls.usOpenTime
+usOpenLn := ls.usOpenLn
+usOpenLb := ls.usOpenLb
+nyseClosePx := ls.nyseClosePx
+nyseCloseTime := ls.nyseCloseTime
+nyseCloseLn := ls.nyseCloseLn
+nyseCloseLb := ls.nyseCloseLb
+asiaOpenPx := ls.asiaOpenPx
+asiaOpenTime := ls.asiaOpenTime
+asiaOpenLn := ls.asiaOpenLn
+asiaOpenLb := ls.asiaOpenLb
+ndogTop := ls.ndogTop
+ndogBot := ls.ndogBot
+nwogTop := ls.nwogTop
+nwogBot := ls.nwogBot
+ndogBox := ls.ndogBox
+nwogBox := ls.nwogBox
+ndogLb := ls.ndogLb
+nwogLb := ls.nwogLb
+prevM_H := ls.prevM_H
+prevM_L := ls.prevM_L
+cmH := ls.cmH
+cmL := ls.cmL
+asiaH := ls.asiaH
+asiaL := ls.asiaL
+nearNDOG = ls.nearNDOG
+nearNWOG = ls.nearNWOG
+inAsia = ls.inAsia
 
 // ═══════════════════════════ ROUND NUMBER POOLS ═══════════════════════════
 f_clearRounds() =>
@@ -888,99 +1275,287 @@ f_scan(arr) =>
 [dBull, dBear, dRefL, dRefS, dCL, dCS, dCLpx, dCSpx, dNBull, dNBear] = f_scan(dynLevels)
 [rBull, rBear, rRefL, rRefS, rCL, rCS, rCLpx, rCSpx, rNBull, rNBear] = f_scan(roundLevels)
 
-anyBull       = sBull or dBull or rBull
-anyBear       = sBear or dBear or rBear
-sweepRefLong  = na(sRefL) ? (na(dRefL) ? rRefL : na(rRefL) ? dRefL : math.min(dRefL, rRefL)) : (na(dRefL) ? (na(rRefL) ? sRefL : math.min(sRefL, rRefL)) : (na(rRefL) ? math.min(sRefL, dRefL) : math.min(sRefL, math.min(dRefL, rRefL))))
-sweepRefShort = na(sRefS) ? (na(dRefS) ? rRefS : na(rRefS) ? dRefS : math.max(dRefS, rRefS)) : (na(dRefS) ? (na(rRefS) ? sRefS : math.max(sRefS, rRefS)) : (na(rRefS) ? math.max(sRefS, dRefS) : math.max(sRefS, math.max(dRefS, rRefS))))
-contLong      = sCL or dCL or rCL
-contShort     = sCS or dCS or rCS
-contLongBase  = na(sCLpx) ? (na(dCLpx) ? rCLpx : na(rCLpx) ? dCLpx : math.max(dCLpx, rCLpx)) : (na(dCLpx) ? (na(rCLpx) ? sCLpx : math.max(sCLpx, rCLpx)) : (na(rCLpx) ? math.max(sCLpx, dCLpx) : math.max(sCLpx, math.max(dCLpx, rCLpx))))
-contShortBase = na(sCSpx) ? (na(dCSpx) ? rCSpx : na(rCSpx) ? dCSpx : math.min(dCSpx, rCSpx)) : (na(dCSpx) ? (na(rCSpx) ? sCSpx : math.min(sCSpx, rCSpx)) : (na(rCSpx) ? math.min(sCSpx, dCSpx) : math.min(sCSpx, math.min(dCSpx, rCSpx))))
-sweptLongName  = sBull ? sNBull : dBull ? dNBull : rNBull
-sweptShortName = sBear ? sNBear : dBear ? dNBear : rNBear
-extBull = sBull or rBull   // external SSL sweep
-extBear = sBear or rBear   // external BSL sweep
-intBull = dBull            // internal EQL sweep
-intBear = dBear            // internal EQH sweep
-
-// Sweep quality: rejection wick share of candle range
-candleRange = high - low
-upperWick = high - math.max(open, close)
-lowerWick = math.min(open, close) - low
-wickRatioBull = candleRange > 0 ? lowerWick / candleRange : 0.0
-wickRatioBear = candleRange > 0 ? upperWick / candleRange : 0.0
-qualityBull = wickRatioBull >= minWickRatio
-qualityBear = wickRatioBear >= minWickRatio
-
-// ── Inducement nesting: internal taken recently, then external hunt ──
+// Sweep context state (hoisted; calc in f_runSweepContext)
 var int lastIntBullBar = -100000
 var int lastIntBearBar = -100000
-nestB = math.max(10, math.round(nestBars / barScale))
-if intBull
-    lastIntBullBar := bar_index
-if intBear
-    lastIntBearBar := bar_index
-// Bullish path: internal BSL (EQH) inducement then external SSL sweep — or recent INT SSL then EXT SSL
-nestedLong  = not useNest or (extBull and (bar_index - lastIntBearBar <= nestB or bar_index - lastIntBullBar <= nestB or intBull))
-nestedShort = not useNest or (extBear and (bar_index - lastIntBullBar <= nestB or bar_index - lastIntBearBar <= nestB or intBear))
-nestOKL = not requireNest or nestedLong
-nestOKS = not requireNest or nestedShort
-// Prefer external for quality score
-extQualityL = extBull or not useNest
-extQualityS = extBear or not useNest
-
-// ── Premium / Discount dealing range (Asia or swing) ──
-dealHi = na(asiaH) ? (na(swingHi) ? cdH : swingHi) : na(swingHi) ? asiaH : math.max(asiaH, swingHi)
-dealLo = na(asiaL) ? (na(swingLo) ? cdL : swingLo) : na(swingLo) ? asiaL : math.min(asiaL, swingLo)
-dealRange = not na(dealHi) and not na(dealLo) and dealHi > dealLo ? dealHi - dealLo : na
-dealEq = not na(dealRange) ? dealLo + dealRange * 0.5 : na
-inDiscount = na(dealEq) or close <= dealEq
-inPremium  = na(dealEq) or close >= dealEq
-premDiscLongOK  = not usePremDisc or inDiscount
-premDiscShortOK = not usePremDisc or inPremium
-
-// ── SMT (Gold vs Silver) at swing extremes ──
 var float smtLastPH = na
 var float smtLastPL = na
-if not na(smtPH)
-    smtLastPH := smtPH
-if not na(smtPL)
-    smtLastPL := smtPL
-// Bullish SMT: gold sweeps a low while silver fails to make a lower low
-smtAgBull = useSMT and anyBull and not na(smtLastPL) and not na(smtLo) and smtLo > smtLastPL
-// Bearish SMT: gold sweeps a high while silver fails to make a higher high
-smtAgBear = useSMT and anyBear and not na(smtLastPH) and not na(smtHi) and smtHi < smtLastPH
-
-// ── SMT Gold vs DXY ──
 var float dxyLastPH = na
 var float dxyLastPL = na
-if not na(dxyPH)
-    dxyLastPH := dxyPH
-if not na(dxyPL)
-    dxyLastPL := dxyPL
-// Gold LL + DXY fails HH → bullish gold | Gold HH + DXY fails LL → bearish gold
-smtDxyBull = useSmtDXY and anyBull and not na(dxyLastPH) and not na(dxyHiS) and dxyHiS < dxyLastPH
-smtDxyBear = useSmtDXY and anyBear and not na(dxyLastPL) and not na(dxyLoS) and dxyLoS > dxyLastPL
-
-// ── SMT Gold vs ES (equity risk) ──
 var float esLastPH = na
 var float esLastPL = na
-if not na(esPH)
-    esLastPH := esPH
-if not na(esPL)
-    esLastPL := esPL
-// Gold LL + ES fails LL → bullish gold | Gold HH + ES fails HH → bearish gold
-smtEsBull = useSmtES and anyBull and not na(esLastPL) and not na(esLoS) and esLoS > esLastPL
-smtEsBear = useSmtES and anyBear and not na(esLastPH) and not na(esHiS) and esHiS < esLastPH
 
-smtBullRaw = smtAgBull or smtDxyBull or smtEsBull
-smtBearRaw = smtAgBear or smtDxyBear or smtEsBear
-smtLongOK  = (not useSMT and not useSmtDXY and not useSmtES) or not requireSMT or smtBullRaw
-smtShortOK = (not useSMT and not useSmtDXY and not useSmtES) or not requireSMT or smtBearRaw
+type SweepSnap
+    int lastIntBullBar
+    int lastIntBearBar
+    float smtLastPH
+    float smtLastPL
+    float dxyLastPH
+    float dxyLastPL
+    float esLastPH
+    float esLastPL
+    bool anyBull
+    bool anyBear
+    float sweepRefLong
+    float sweepRefShort
+    bool contLong
+    bool contShort
+    float contLongBase
+    float contShortBase
+    string sweptLongName
+    string sweptShortName
+    bool extBull
+    bool extBear
+    bool intBull
+    bool intBear
+    float candleRange
+    float upperWick
+    float lowerWick
+    float wickRatioBull
+    float wickRatioBear
+    bool qualityBull
+    bool qualityBear
+    int nestB
+    bool nestedLong
+    bool nestedShort
+    bool nestOKL
+    bool nestOKS
+    bool extQualityL
+    bool extQualityS
+    float dealHi
+    float dealLo
+    float dealRange
+    float dealEq
+    bool inDiscount
+    bool inPremium
+    bool premDiscLongOK
+    bool premDiscShortOK
+    bool smtAgBull
+    bool smtAgBear
+    bool smtDxyBull
+    bool smtDxyBear
+    bool smtEsBull
+    bool smtEsBear
+    bool smtBullRaw
+    bool smtBearRaw
+    bool smtLongOK
+    bool smtShortOK
+    bool nearOpen
+    bool nearBell
 
-// Near institutional open confluence
-nearOpen = useOpens and ((not na(dayOpen) and math.abs(close - dayOpen) <= atrVal) or (not na(weekOpen) and math.abs(close - weekOpen) <= atrVal) or (not na(midOpen) and math.abs(close - midOpen) <= atrVal))
-nearBell = useXBells and ((not na(lonOpenPx) and math.abs(close - lonOpenPx) <= atrVal) or (not na(lonClosePx) and math.abs(close - lonClosePx) <= atrVal) or (not na(usOpenPx) and math.abs(close - usOpenPx) <= atrVal) or (not na(nyseClosePx) and math.abs(close - nyseClosePx) <= atrVal) or (not na(asiaOpenPx) and math.abs(close - asiaOpenPx) <= atrVal))
+f_runSweepContext() =>
+    int v_lastIntBullBar = lastIntBullBar
+    int v_lastIntBearBar = lastIntBearBar
+    float v_smtLastPH = smtLastPH
+    float v_smtLastPL = smtLastPL
+    float v_dxyLastPH = dxyLastPH
+    float v_dxyLastPL = dxyLastPL
+    float v_esLastPH = esLastPH
+    float v_esLastPL = esLastPL
+
+    v_anyBull       = sBull or dBull or rBull
+    v_anyBear       = sBear or dBear or rBear
+    v_sweepRefLong  = na(sRefL) ? (na(dRefL) ? rRefL : na(rRefL) ? dRefL : math.min(dRefL, rRefL)) : (na(dRefL) ? (na(rRefL) ? sRefL : math.min(sRefL, rRefL)) : (na(rRefL) ? math.min(sRefL, dRefL) : math.min(sRefL, math.min(dRefL, rRefL))))
+    v_sweepRefShort = na(sRefS) ? (na(dRefS) ? rRefS : na(rRefS) ? dRefS : math.max(dRefS, rRefS)) : (na(dRefS) ? (na(rRefS) ? sRefS : math.max(sRefS, rRefS)) : (na(rRefS) ? math.max(sRefS, dRefS) : math.max(sRefS, math.max(dRefS, rRefS))))
+    v_contLong      = sCL or dCL or rCL
+    v_contShort     = sCS or dCS or rCS
+    v_contLongBase  = na(sCLpx) ? (na(dCLpx) ? rCLpx : na(rCLpx) ? dCLpx : math.max(dCLpx, rCLpx)) : (na(dCLpx) ? (na(rCLpx) ? sCLpx : math.max(sCLpx, rCLpx)) : (na(rCLpx) ? math.max(sCLpx, dCLpx) : math.max(sCLpx, math.max(dCLpx, rCLpx))))
+    v_contShortBase = na(sCSpx) ? (na(dCSpx) ? rCSpx : na(rCSpx) ? dCSpx : math.min(dCSpx, rCSpx)) : (na(dCSpx) ? (na(rCSpx) ? sCSpx : math.min(sCSpx, rCSpx)) : (na(rCSpx) ? math.min(sCSpx, dCSpx) : math.min(sCSpx, math.min(dCSpx, rCSpx))))
+    v_sweptLongName  = sBull ? sNBull : dBull ? dNBull : rNBull
+    v_sweptShortName = sBear ? sNBear : dBear ? dNBear : rNBear
+    v_extBull = sBull or rBull   // external SSL sweep
+    v_extBear = sBear or rBear   // external BSL sweep
+    v_intBull = dBull            // internal EQL sweep
+    v_intBear = dBear            // internal EQH sweep
+
+    // Sweep quality: rejection wick share of candle range
+    v_candleRange = high - low
+    v_upperWick = high - math.max(open, close)
+    v_lowerWick = math.min(open, close) - low
+    v_wickRatioBull = v_candleRange > 0 ? v_lowerWick / v_candleRange : 0.0
+    v_wickRatioBear = v_candleRange > 0 ? v_upperWick / v_candleRange : 0.0
+    v_qualityBull = v_wickRatioBull >= minWickRatio
+    v_qualityBear = v_wickRatioBear >= minWickRatio
+
+    // ── Inducement nesting: internal taken recently, then external hunt ──
+    v_nestB = math.max(10, math.round(nestBars / barScale))
+    if v_intBull
+        v_lastIntBullBar := bar_index
+    if v_intBear
+        v_lastIntBearBar := bar_index
+    // Bullish path: internal BSL (EQH) inducement then external SSL sweep — or recent INT SSL then EXT SSL
+    v_nestedLong  = not useNest or (v_extBull and (bar_index - v_lastIntBearBar <= v_nestB or bar_index - v_lastIntBullBar <= v_nestB or v_intBull))
+    v_nestedShort = not useNest or (v_extBear and (bar_index - v_lastIntBullBar <= v_nestB or bar_index - v_lastIntBearBar <= v_nestB or v_intBear))
+    v_nestOKL = not requireNest or v_nestedLong
+    v_nestOKS = not requireNest or v_nestedShort
+    // Prefer external for quality score
+    v_extQualityL = v_extBull or not useNest
+    v_extQualityS = v_extBear or not useNest
+
+    // ── Premium / Discount dealing range (Asia or swing) ──
+    v_dealHi = na(asiaH) ? (na(swingHi) ? cdH : swingHi) : na(swingHi) ? asiaH : math.max(asiaH, swingHi)
+    v_dealLo = na(asiaL) ? (na(swingLo) ? cdL : swingLo) : na(swingLo) ? asiaL : math.min(asiaL, swingLo)
+    v_dealRange = not na(v_dealHi) and not na(v_dealLo) and v_dealHi > v_dealLo ? v_dealHi - v_dealLo : na
+    v_dealEq = not na(v_dealRange) ? v_dealLo + v_dealRange * 0.5 : na
+    v_inDiscount = na(v_dealEq) or close <= v_dealEq
+    v_inPremium  = na(v_dealEq) or close >= v_dealEq
+    v_premDiscLongOK  = not usePremDisc or v_inDiscount
+    v_premDiscShortOK = not usePremDisc or v_inPremium
+
+    // ── SMT (Gold vs Silver) at swing extremes ──
+    if not na(smtPH)
+        v_smtLastPH := smtPH
+    if not na(smtPL)
+        v_smtLastPL := smtPL
+    // Bullish SMT: gold sweeps a low while silver fails to make a lower low
+    v_smtAgBull = useSMT and v_anyBull and not na(v_smtLastPL) and not na(smtLo) and smtLo > v_smtLastPL
+    // Bearish SMT: gold sweeps a high while silver fails to make a higher high
+    v_smtAgBear = useSMT and v_anyBear and not na(v_smtLastPH) and not na(smtHi) and smtHi < v_smtLastPH
+
+    // ── SMT Gold vs DXY ──
+    if not na(dxyPH)
+        v_dxyLastPH := dxyPH
+    if not na(dxyPL)
+        v_dxyLastPL := dxyPL
+    // Gold LL + DXY fails HH → bullish gold | Gold HH + DXY fails LL → bearish gold
+    v_smtDxyBull = useSmtDXY and v_anyBull and not na(v_dxyLastPH) and not na(dxyHiS) and dxyHiS < v_dxyLastPH
+    v_smtDxyBear = useSmtDXY and v_anyBear and not na(v_dxyLastPL) and not na(dxyLoS) and dxyLoS > v_dxyLastPL
+
+    // ── SMT Gold vs ES (equity risk) ──
+    if not na(esPH)
+        v_esLastPH := esPH
+    if not na(esPL)
+        v_esLastPL := esPL
+    // Gold LL + ES fails LL → bullish gold | Gold HH + ES fails HH → bearish gold
+    v_smtEsBull = useSmtES and v_anyBull and not na(v_esLastPL) and not na(esLoS) and esLoS > v_esLastPL
+    v_smtEsBear = useSmtES and v_anyBear and not na(v_esLastPH) and not na(esHiS) and esHiS < v_esLastPH
+
+    v_smtBullRaw = v_smtAgBull or v_smtDxyBull or v_smtEsBull
+    v_smtBearRaw = v_smtAgBear or v_smtDxyBear or v_smtEsBear
+    v_smtLongOK  = (not useSMT and not useSmtDXY and not useSmtES) or not requireSMT or v_smtBullRaw
+    v_smtShortOK = (not useSMT and not useSmtDXY and not useSmtES) or not requireSMT or v_smtBearRaw
+
+    // Near institutional open confluence
+    v_nearOpen = useOpens and ((not na(dayOpen) and math.abs(close - dayOpen) <= atrVal) or (not na(weekOpen) and math.abs(close - weekOpen) <= atrVal) or (not na(midOpen) and math.abs(close - midOpen) <= atrVal))
+    v_nearBell = useXBells and ((not na(lonOpenPx) and math.abs(close - lonOpenPx) <= atrVal) or (not na(lonClosePx) and math.abs(close - lonClosePx) <= atrVal) or (not na(usOpenPx) and math.abs(close - usOpenPx) <= atrVal) or (not na(nyseClosePx) and math.abs(close - nyseClosePx) <= atrVal) or (not na(asiaOpenPx) and math.abs(close - asiaOpenPx) <= atrVal))
+
+
+    SweepSnap o = SweepSnap.new()
+    o.lastIntBullBar := v_lastIntBullBar
+    o.lastIntBearBar := v_lastIntBearBar
+    o.smtLastPH := v_smtLastPH
+    o.smtLastPL := v_smtLastPL
+    o.dxyLastPH := v_dxyLastPH
+    o.dxyLastPL := v_dxyLastPL
+    o.esLastPH := v_esLastPH
+    o.esLastPL := v_esLastPL
+    o.anyBull := v_anyBull
+    o.anyBear := v_anyBear
+    o.sweepRefLong := v_sweepRefLong
+    o.sweepRefShort := v_sweepRefShort
+    o.contLong := v_contLong
+    o.contShort := v_contShort
+    o.contLongBase := v_contLongBase
+    o.contShortBase := v_contShortBase
+    o.sweptLongName := v_sweptLongName
+    o.sweptShortName := v_sweptShortName
+    o.extBull := v_extBull
+    o.extBear := v_extBear
+    o.intBull := v_intBull
+    o.intBear := v_intBear
+    o.candleRange := v_candleRange
+    o.upperWick := v_upperWick
+    o.lowerWick := v_lowerWick
+    o.wickRatioBull := v_wickRatioBull
+    o.wickRatioBear := v_wickRatioBear
+    o.qualityBull := v_qualityBull
+    o.qualityBear := v_qualityBear
+    o.nestB := v_nestB
+    o.nestedLong := v_nestedLong
+    o.nestedShort := v_nestedShort
+    o.nestOKL := v_nestOKL
+    o.nestOKS := v_nestOKS
+    o.extQualityL := v_extQualityL
+    o.extQualityS := v_extQualityS
+    o.dealHi := v_dealHi
+    o.dealLo := v_dealLo
+    o.dealRange := v_dealRange
+    o.dealEq := v_dealEq
+    o.inDiscount := v_inDiscount
+    o.inPremium := v_inPremium
+    o.premDiscLongOK := v_premDiscLongOK
+    o.premDiscShortOK := v_premDiscShortOK
+    o.smtAgBull := v_smtAgBull
+    o.smtAgBear := v_smtAgBear
+    o.smtDxyBull := v_smtDxyBull
+    o.smtDxyBear := v_smtDxyBear
+    o.smtEsBull := v_smtEsBull
+    o.smtEsBear := v_smtEsBear
+    o.smtBullRaw := v_smtBullRaw
+    o.smtBearRaw := v_smtBearRaw
+    o.smtLongOK := v_smtLongOK
+    o.smtShortOK := v_smtShortOK
+    o.nearOpen := v_nearOpen
+    o.nearBell := v_nearBell
+    o
+
+SweepSnap sw = f_runSweepContext()
+lastIntBullBar := sw.lastIntBullBar
+lastIntBearBar := sw.lastIntBearBar
+smtLastPH := sw.smtLastPH
+smtLastPL := sw.smtLastPL
+dxyLastPH := sw.dxyLastPH
+dxyLastPL := sw.dxyLastPL
+esLastPH := sw.esLastPH
+esLastPL := sw.esLastPL
+anyBull = sw.anyBull
+anyBear = sw.anyBear
+sweepRefLong = sw.sweepRefLong
+sweepRefShort = sw.sweepRefShort
+contLong = sw.contLong
+contShort = sw.contShort
+contLongBase = sw.contLongBase
+contShortBase = sw.contShortBase
+sweptLongName = sw.sweptLongName
+sweptShortName = sw.sweptShortName
+extBull = sw.extBull
+extBear = sw.extBear
+intBull = sw.intBull
+intBear = sw.intBear
+candleRange = sw.candleRange
+upperWick = sw.upperWick
+lowerWick = sw.lowerWick
+wickRatioBull = sw.wickRatioBull
+wickRatioBear = sw.wickRatioBear
+qualityBull = sw.qualityBull
+qualityBear = sw.qualityBear
+nestB = sw.nestB
+nestedLong = sw.nestedLong
+nestedShort = sw.nestedShort
+nestOKL = sw.nestOKL
+nestOKS = sw.nestOKS
+extQualityL = sw.extQualityL
+extQualityS = sw.extQualityS
+dealHi = sw.dealHi
+dealLo = sw.dealLo
+dealRange = sw.dealRange
+dealEq = sw.dealEq
+inDiscount = sw.inDiscount
+inPremium = sw.inPremium
+premDiscLongOK = sw.premDiscLongOK
+premDiscShortOK = sw.premDiscShortOK
+smtAgBull = sw.smtAgBull
+smtAgBear = sw.smtAgBear
+smtDxyBull = sw.smtDxyBull
+smtDxyBear = sw.smtDxyBear
+smtEsBull = sw.smtEsBull
+smtEsBear = sw.smtEsBear
+smtBullRaw = sw.smtBullRaw
+smtBearRaw = sw.smtBearRaw
+smtLongOK = sw.smtLongOK
+smtShortOK = sw.smtShortOK
+nearOpen = sw.nearOpen
+nearBell = sw.nearBell
 
 // ═══════════════════════════ ELITE EDGE PACK (v5) ═══════════════════════════
 // HTF Draw on Liquidity — nearest untapped external pool in each direction
@@ -997,45 +1572,7 @@ f_pickBelow(float px, float best) =>
     if not na(px) and px <= close - minD
         r := na(r) ? px : math.max(r, px)
     r
-float drawBSL = na
-float drawSSL = na
-drawBSL := f_pickAbove(lvlPDH.price, drawBSL)
-drawBSL := f_pickAbove(lvlPWH.price, drawBSL)
-drawBSL := f_pickAbove(lvlAsiaH.price, drawBSL)
-drawBSL := f_pickAbove(lvlCDH.price, drawBSL)
-drawBSL := f_pickAbove(lvlCWH.price, drawBSL)
-drawBSL := f_pickAbove(lvlIP20H.price, drawBSL)
-drawBSL := f_pickAbove(lvlIP40H.price, drawBSL)
-drawBSL := f_pickAbove(lvlIP60H.price, drawBSL)
-drawBSL := f_pickAbove(ndogTop, drawBSL)
-drawBSL := f_pickAbove(nwogTop, drawBSL)
-drawSSL := f_pickBelow(lvlPDL.price, drawSSL)
-drawSSL := f_pickBelow(lvlPWL.price, drawSSL)
-drawSSL := f_pickBelow(lvlAsiaL.price, drawSSL)
-drawSSL := f_pickBelow(lvlCDL.price, drawSSL)
-drawSSL := f_pickBelow(lvlCWL.price, drawSSL)
-drawSSL := f_pickBelow(lvlIP20L.price, drawSSL)
-drawSSL := f_pickBelow(lvlIP40L.price, drawSSL)
-drawSSL := f_pickBelow(lvlIP60L.price, drawSSL)
-drawSSL := f_pickBelow(ndogBot, drawSSL)
-drawSSL := f_pickBelow(nwogBot, drawSSL)
-if array.size(roundLevels) > 0
-    for L in roundLevels
-        if L.kind == "high"
-            drawBSL := f_pickAbove(L.price, drawBSL)
-        else
-            drawSSL := f_pickBelow(L.price, drawSSL)
-drawLongOK  = not useHTFDraw or not effReqDraw or not na(drawBSL)
-drawShortOK = not useHTFDraw or not effReqDraw or not na(drawSSL)
-string drawTxt = not useHTFDraw ? "Off" : useSimple ? ((not na(drawBSL) ? "Close BUY at " + str.tostring(drawBSL, format.mintick) + " (+$" + str.tostring(drawBSL - close, "#.#") + ")" : "no BUY cash-out yet") + " | " + (not na(drawSSL) ? "Close SELL at " + str.tostring(drawSSL, format.mintick) + " (-$" + str.tostring(close - drawSSL, "#.#") + ")" : "no SELL cash-out yet")) : ((not na(drawBSL) ? "UP " + str.tostring(drawBSL, format.mintick) : "no BSL") + " | " + (not na(drawSSL) ? "DN " + str.tostring(drawSSL, format.mintick) : "no SSL"))
-
-// HTF POI alignment
-inHtfBullPOI = useHTFPOI and not na(htfBullBot) and low <= htfBullTop and high >= htfBullBot
-inHtfBearPOI = useHTFPOI and not na(htfBearTop) and high >= htfBearBot and low <= htfBearTop
-poiLongOK  = not useHTFPOI or not requirePOI or inHtfBullPOI
-poiShortOK = not useHTFPOI or not requirePOI or inHtfBearPOI
-
-// Chart-TF FVG → IFVG + BPR
+// Elite edge state (hoisted; calc in f_runEliteEdge)
 var float lastBullFvgTop = na
 var float lastBullFvgBot = na
 var float lastBearFvgTop = na
@@ -1043,47 +1580,6 @@ var float lastBearFvgBot = na
 var float ifvgTop = na
 var float ifvgBot = na
 var int   ifvgDir = 0
-if low > high[2]
-    lastBullFvgBot := high[2]
-    lastBullFvgTop := low
-if high < low[2]
-    lastBearFvgTop := low[2]
-    lastBearFvgBot := high
-if useIFVG and not na(lastBullFvgBot) and close < lastBullFvgBot
-    ifvgTop := lastBullFvgTop
-    ifvgBot := lastBullFvgBot
-    ifvgDir := -1
-    lastBullFvgTop := na
-    lastBullFvgBot := na
-if useIFVG and not na(lastBearFvgTop) and close > lastBearFvgTop
-    ifvgTop := lastBearFvgTop
-    ifvgBot := lastBearFvgBot
-    ifvgDir := 1
-    lastBearFvgTop := na
-    lastBearFvgBot := na
-inBullIFVG = useIFVG and ifvgDir == 1 and not na(ifvgBot) and high >= ifvgBot and low <= ifvgTop
-inBearIFVG = useIFVG and ifvgDir == -1 and not na(ifvgTop) and high >= ifvgBot and low <= ifvgTop
-bprActive = useBPR and not na(lastBullFvgBot) and not na(lastBearFvgBot) and lastBullFvgBot < lastBearFvgTop and lastBullFvgTop > lastBearFvgBot
-nearBPR = bprActive and high >= math.min(lastBullFvgBot, lastBearFvgBot) and low <= math.max(lastBullFvgTop, lastBearFvgTop)
-
-// Time confluence (:00 / :30 New York)
-nyMin = minute(time, TZ_NY)
-timeConf = not useTimeConf or nyMin == 0 or nyMin == 30
-
-// News blackout (manual CPI/NFP/FOMC windows)
-inNews = effNewsBlk and (not na(time(timeframe.period, newsSess1, TZ_NY)) or not na(time(timeframe.period, newsSess2, TZ_NY)) or not na(time(timeframe.period, newsSess3, TZ_NY)) or (useNews4 and not na(time(timeframe.period, newsSess4, TZ_NY))))
-
-// Dead hours: London close / NY lunch
-inLonClose = effDeadHrs and not na(time(timeframe.period, lonCloseSess, TZ_NY))
-inNyLunch  = effDeadHrs and not na(time(timeframe.period, nyLunchSess, TZ_NY))
-inDeadHrs  = inLonClose or inNyLunch
-
-// ═══════════════════════════ SESSION HIERARCHY ═══════════════════════════
-inLondon  = useLondonKZ and not na(time(timeframe.period, londonKZ, TZ_NY))
-inNY      = useNYKZ     and not na(time(timeframe.period, nyKZ, TZ_NY))
-inSB      = useSB       and not na(time(timeframe.period, sbKZ, TZ_NY))
-sessionOK = not useSessFilter or inLondon or inNY or inSB
-
 var bool asiaHighSweptLondon = false
 var bool asiaLowSweptLondon  = false
 var bool londonHighSweptNY   = false
@@ -1091,55 +1587,301 @@ var bool londonLowSweptNY    = false
 var float londonH = na
 var float londonL = na
 
-if inLondon and not inLondon[1]
-    londonH := high
-    londonL := low
-    asiaHighSweptLondon := false
-    asiaLowSweptLondon := false
-else if inLondon
-    londonH := math.max(nz(londonH, high), high)
-    londonL := math.min(nz(londonL, low), low)
-    if useAsia and not na(lvlAsiaH.price) and high > lvlAsiaH.price and close < lvlAsiaH.price
-        asiaHighSweptLondon := true
-    if useAsia and not na(lvlAsiaL.price) and low < lvlAsiaL.price and close > lvlAsiaL.price
-        asiaLowSweptLondon := true
+type EliteSnap
+    float lastBullFvgTop
+    float lastBullFvgBot
+    float lastBearFvgTop
+    float lastBearFvgBot
+    float ifvgTop
+    float ifvgBot
+    int ifvgDir
+    bool asiaHighSweptLondon
+    bool asiaLowSweptLondon
+    bool londonHighSweptNY
+    bool londonLowSweptNY
+    float londonH
+    float londonL
+    float drawBSL
+    float drawSSL
+    bool drawLongOK
+    bool drawShortOK
+    string drawTxt
+    bool inHtfBullPOI
+    bool inHtfBearPOI
+    bool poiLongOK
+    bool poiShortOK
+    bool inBullIFVG
+    bool inBearIFVG
+    bool bprActive
+    bool nearBPR
+    int nyMin
+    bool timeConf
+    bool inNews
+    bool inLonClose
+    bool inNyLunch
+    bool inDeadHrs
+    bool inLondon
+    bool inNY
+    bool inSB
+    bool sessionOK
+    bool hierLong
+    bool hierShort
+    bool hierOKL
+    bool hierOKS
+    string amdPhase
+    bool amdLongOK
+    bool amdShortOK
+    string amdTxt
+    bool aPlusLong
+    bool aPlusShort
+    bool aPlusOKL
+    bool aPlusOKS
 
-if inNY and not inNY[1]
-    londonHighSweptNY := false
-    londonLowSweptNY := false
-if inNY
-    if not na(londonH) and high > londonH and close < londonH
-        londonHighSweptNY := true
-    if not na(londonL) and low < londonL and close > londonL
-        londonLowSweptNY := true
+f_runEliteEdge() =>
+    float v_lastBullFvgTop = lastBullFvgTop
+    float v_lastBullFvgBot = lastBullFvgBot
+    float v_lastBearFvgTop = lastBearFvgTop
+    float v_lastBearFvgBot = lastBearFvgBot
+    float v_ifvgTop = ifvgTop
+    float v_ifvgBot = ifvgBot
+    int v_ifvgDir = ifvgDir
+    bool v_asiaHighSweptLondon = asiaHighSweptLondon
+    bool v_asiaLowSweptLondon = asiaLowSweptLondon
+    bool v_londonHighSweptNY = londonHighSweptNY
+    bool v_londonLowSweptNY = londonLowSweptNY
+    float v_londonH = londonH
+    float v_londonL = londonL
+    float v_drawBSL = na
+    float v_drawSSL = na
+    v_drawBSL := f_pickAbove(lvlPDH.price, v_drawBSL)
+    v_drawBSL := f_pickAbove(lvlPWH.price, v_drawBSL)
+    v_drawBSL := f_pickAbove(lvlAsiaH.price, v_drawBSL)
+    v_drawBSL := f_pickAbove(lvlCDH.price, v_drawBSL)
+    v_drawBSL := f_pickAbove(lvlCWH.price, v_drawBSL)
+    v_drawBSL := f_pickAbove(lvlIP20H.price, v_drawBSL)
+    v_drawBSL := f_pickAbove(lvlIP40H.price, v_drawBSL)
+    v_drawBSL := f_pickAbove(lvlIP60H.price, v_drawBSL)
+    v_drawBSL := f_pickAbove(ndogTop, v_drawBSL)
+    v_drawBSL := f_pickAbove(nwogTop, v_drawBSL)
+    v_drawSSL := f_pickBelow(lvlPDL.price, v_drawSSL)
+    v_drawSSL := f_pickBelow(lvlPWL.price, v_drawSSL)
+    v_drawSSL := f_pickBelow(lvlAsiaL.price, v_drawSSL)
+    v_drawSSL := f_pickBelow(lvlCDL.price, v_drawSSL)
+    v_drawSSL := f_pickBelow(lvlCWL.price, v_drawSSL)
+    v_drawSSL := f_pickBelow(lvlIP20L.price, v_drawSSL)
+    v_drawSSL := f_pickBelow(lvlIP40L.price, v_drawSSL)
+    v_drawSSL := f_pickBelow(lvlIP60L.price, v_drawSSL)
+    v_drawSSL := f_pickBelow(ndogBot, v_drawSSL)
+    v_drawSSL := f_pickBelow(nwogBot, v_drawSSL)
+    if array.size(roundLevels) > 0
+        for L in roundLevels
+            if L.kind == "high"
+                v_drawBSL := f_pickAbove(L.price, v_drawBSL)
+            else
+                v_drawSSL := f_pickBelow(L.price, v_drawSSL)
+    bool v_drawLongOK  = not useHTFDraw or not effReqDraw or not na(v_drawBSL)
+    bool v_drawShortOK = not useHTFDraw or not effReqDraw or not na(v_drawSSL)
+    string v_drawTxt = not useHTFDraw ? "Off" : useSimple ? ((not na(v_drawBSL) ? "Close BUY at " + str.tostring(v_drawBSL, format.mintick) + " (+$" + str.tostring(v_drawBSL - close, "#.#") + ")" : "no BUY cash-out yet") + " | " + (not na(v_drawSSL) ? "Close SELL at " + str.tostring(v_drawSSL, format.mintick) + " (-$" + str.tostring(close - v_drawSSL, "#.#") + ")" : "no SELL cash-out yet")) : ((not na(v_drawBSL) ? "UP " + str.tostring(v_drawBSL, format.mintick) : "no BSL") + " | " + (not na(v_drawSSL) ? "DN " + str.tostring(v_drawSSL, format.mintick) : "no SSL"))
 
-hierLong  = (inLondon and asiaLowSweptLondon) or (inNY and londonLowSweptNY) or (str.contains(sweptLongName, "Asia") and inLondon) or (str.contains(sweptLongName, "PDL") and (inLondon or inNY))
-hierShort = (inLondon and asiaHighSweptLondon) or (inNY and londonHighSweptNY) or (str.contains(sweptShortName, "Asia") and inLondon) or (str.contains(sweptShortName, "PDH") and (inLondon or inNY))
-hierOKL = not requireHier or hierLong
-hierOKS = not requireHier or hierShort
+    // HTF POI alignment
+    bool v_inHtfBullPOI = useHTFPOI and not na(htfBullBot) and low <= htfBullTop and high >= htfBullBot
+    bool v_inHtfBearPOI = useHTFPOI and not na(htfBearTop) and high >= htfBearBot and low <= htfBearTop
+    bool v_poiLongOK  = not useHTFPOI or not requirePOI or v_inHtfBullPOI
+    bool v_poiShortOK = not useHTFPOI or not requirePOI or v_inHtfBearPOI
 
-// Power of 3 — AMD (Accumulation / Manipulation / Distribution)
-string amdPhase = "OFF"
-if useAMD
-    if inAsia
-        amdPhase := "ACC"
-    else if inLondon and (asiaHighSweptLondon or asiaLowSweptLondon)
-        amdPhase := "MAN"
-    else if inLondon
-        amdPhase := "ACC"
-    else if inNY or inSB
-        amdPhase := (asiaHighSweptLondon or asiaLowSweptLondon or londonHighSweptNY or londonLowSweptNY) ? "DIST" : "DIST"
-    else
-        amdPhase := "OFF"
-amdLongOK  = not useAMD or not requireAMD or (amdPhase == "DIST" and (asiaLowSweptLondon or londonLowSweptNY or hierLong))
-amdShortOK = not useAMD or not requireAMD or (amdPhase == "DIST" and (asiaHighSweptLondon or londonHighSweptNY or hierShort))
-string amdTxt = not useAMD ? "Off" : amdPhase == "ACC" ? (useSimple ? "Building range — wait" : "ACC") : amdPhase == "MAN" ? (useSimple ? "Fake move happening — get ready" : "MAN") : amdPhase == "DIST" ? (useSimple ? "Real move — trade this" : "DIST") : (useSimple ? "Outside active session" : "OFF")
+    // Chart-TF FVG → IFVG + BPR
+    if low > high[2]
+        v_lastBullFvgBot := high[2]
+        v_lastBullFvgTop := low
+    if high < low[2]
+        v_lastBearFvgTop := low[2]
+        v_lastBearFvgBot := high
+    if useIFVG and not na(v_lastBullFvgBot) and close < v_lastBullFvgBot
+        v_ifvgTop := v_lastBullFvgTop
+        v_ifvgBot := v_lastBullFvgBot
+        v_ifvgDir := -1
+        v_lastBullFvgTop := na
+        v_lastBullFvgBot := na
+    if useIFVG and not na(v_lastBearFvgTop) and close > v_lastBearFvgTop
+        v_ifvgTop := v_lastBearFvgTop
+        v_ifvgBot := v_lastBearFvgBot
+        v_ifvgDir := 1
+        v_lastBearFvgTop := na
+        v_lastBearFvgBot := na
+    bool v_inBullIFVG = useIFVG and v_ifvgDir == 1 and not na(v_ifvgBot) and high >= v_ifvgBot and low <= v_ifvgTop
+    bool v_inBearIFVG = useIFVG and v_ifvgDir == -1 and not na(v_ifvgTop) and high >= v_ifvgBot and low <= v_ifvgTop
+    bool v_bprActive = useBPR and not na(v_lastBullFvgBot) and not na(v_lastBearFvgBot) and v_lastBullFvgBot < v_lastBearFvgTop and v_lastBullFvgTop > v_lastBearFvgBot
+    bool v_nearBPR = v_bprActive and high >= math.min(v_lastBullFvgBot, v_lastBearFvgBot) and low <= math.max(v_lastBullFvgTop, v_lastBearFvgTop)
 
-// A+ desk confluence (strict optional gate)
-aPlusLong  = sessionOK and nestedLong and premDiscLongOK and drawLongOK and (smtBullRaw or hierLong) and (not useAMD or amdPhase == "DIST" or hierLong)
-aPlusShort = sessionOK and nestedShort and premDiscShortOK and drawShortOK and (smtBearRaw or hierShort) and (not useAMD or amdPhase == "DIST" or hierShort)
-aPlusOKL = not aPlusMode or aPlusLong
-aPlusOKS = not aPlusMode or aPlusShort
+    // Time confluence (:00 / :30 New York)
+    int v_nyMin = minute(time, TZ_NY)
+    bool v_timeConf = not useTimeConf or v_nyMin == 0 or v_nyMin == 30
+
+    // News blackout (manual CPI/NFP/FOMC windows)
+    bool v_inNews = effNewsBlk and (not na(time(timeframe.period, newsSess1, TZ_NY)) or not na(time(timeframe.period, newsSess2, TZ_NY)) or not na(time(timeframe.period, newsSess3, TZ_NY)) or (useNews4 and not na(time(timeframe.period, newsSess4, TZ_NY))))
+
+    // Dead hours: London close / NY lunch
+    bool v_inLonClose = effDeadHrs and not na(time(timeframe.period, lonCloseSess, TZ_NY))
+    bool v_inNyLunch  = effDeadHrs and not na(time(timeframe.period, nyLunchSess, TZ_NY))
+    bool v_inDeadHrs  = v_inLonClose or v_inNyLunch
+
+    // ═══════════════════════════ SESSION HIERARCHY ═══════════════════════════
+    bool v_inLondon  = useLondonKZ and not na(time(timeframe.period, londonKZ, TZ_NY))
+    bool v_inNY      = useNYKZ     and not na(time(timeframe.period, nyKZ, TZ_NY))
+    bool v_inSB      = useSB       and not na(time(timeframe.period, sbKZ, TZ_NY))
+    bool v_sessionOK = not useSessFilter or v_inLondon or v_inNY or v_inSB
+
+    if v_inLondon and not v_inLondon[1]
+        v_londonH := high
+        v_londonL := low
+        v_asiaHighSweptLondon := false
+        v_asiaLowSweptLondon := false
+    else if v_inLondon
+        v_londonH := math.max(nz(v_londonH, high), high)
+        v_londonL := math.min(nz(v_londonL, low), low)
+        if useAsia and not na(lvlAsiaH.price) and high > lvlAsiaH.price and close < lvlAsiaH.price
+            v_asiaHighSweptLondon := true
+        if useAsia and not na(lvlAsiaL.price) and low < lvlAsiaL.price and close > lvlAsiaL.price
+            v_asiaLowSweptLondon := true
+
+    if v_inNY and not v_inNY[1]
+        v_londonHighSweptNY := false
+        v_londonLowSweptNY := false
+    if v_inNY
+        if not na(v_londonH) and high > v_londonH and close < v_londonH
+            v_londonHighSweptNY := true
+        if not na(v_londonL) and low < v_londonL and close > v_londonL
+            v_londonLowSweptNY := true
+
+    bool v_hierLong  = (v_inLondon and v_asiaLowSweptLondon) or (v_inNY and v_londonLowSweptNY) or (str.contains(sweptLongName, "Asia") and v_inLondon) or (str.contains(sweptLongName, "PDL") and (v_inLondon or v_inNY))
+    bool v_hierShort = (v_inLondon and v_asiaHighSweptLondon) or (v_inNY and v_londonHighSweptNY) or (str.contains(sweptShortName, "Asia") and v_inLondon) or (str.contains(sweptShortName, "PDH") and (v_inLondon or v_inNY))
+    bool v_hierOKL = not requireHier or v_hierLong
+    bool v_hierOKS = not requireHier or v_hierShort
+
+    // Power of 3 — AMD (Accumulation / Manipulation / Distribution)
+    string v_amdPhase = "OFF"
+    if useAMD
+        if inAsia
+            v_amdPhase := "ACC"
+        else if v_inLondon and (v_asiaHighSweptLondon or v_asiaLowSweptLondon)
+            v_amdPhase := "MAN"
+        else if v_inLondon
+            v_amdPhase := "ACC"
+        else if v_inNY or v_inSB
+            v_amdPhase := (v_asiaHighSweptLondon or v_asiaLowSweptLondon or v_londonHighSweptNY or v_londonLowSweptNY) ? "DIST" : "DIST"
+        else
+            v_amdPhase := "OFF"
+    bool v_amdLongOK  = not useAMD or not requireAMD or (v_amdPhase == "DIST" and (v_asiaLowSweptLondon or v_londonLowSweptNY or v_hierLong))
+    bool v_amdShortOK = not useAMD or not requireAMD or (v_amdPhase == "DIST" and (v_asiaHighSweptLondon or v_londonHighSweptNY or v_hierShort))
+    string v_amdTxt = not useAMD ? "Off" : v_amdPhase == "ACC" ? (useSimple ? "Building range — wait" : "ACC") : v_amdPhase == "MAN" ? (useSimple ? "Fake move happening — get ready" : "MAN") : v_amdPhase == "DIST" ? (useSimple ? "Real move — trade this" : "DIST") : (useSimple ? "Outside active session" : "OFF")
+
+    // A+ desk confluence (strict optional gate)
+    bool v_aPlusLong  = v_sessionOK and nestedLong and premDiscLongOK and v_drawLongOK and (smtBullRaw or v_hierLong) and (not useAMD or v_amdPhase == "DIST" or v_hierLong)
+    bool v_aPlusShort = v_sessionOK and nestedShort and premDiscShortOK and v_drawShortOK and (smtBearRaw or v_hierShort) and (not useAMD or v_amdPhase == "DIST" or v_hierShort)
+    bool v_aPlusOKL = not aPlusMode or v_aPlusLong
+    bool v_aPlusOKS = not aPlusMode or v_aPlusShort
+
+    EliteSnap o = EliteSnap.new()
+    o.lastBullFvgTop := v_lastBullFvgTop
+    o.lastBullFvgBot := v_lastBullFvgBot
+    o.lastBearFvgTop := v_lastBearFvgTop
+    o.lastBearFvgBot := v_lastBearFvgBot
+    o.ifvgTop := v_ifvgTop
+    o.ifvgBot := v_ifvgBot
+    o.ifvgDir := v_ifvgDir
+    o.asiaHighSweptLondon := v_asiaHighSweptLondon
+    o.asiaLowSweptLondon := v_asiaLowSweptLondon
+    o.londonHighSweptNY := v_londonHighSweptNY
+    o.londonLowSweptNY := v_londonLowSweptNY
+    o.londonH := v_londonH
+    o.londonL := v_londonL
+    o.drawBSL := v_drawBSL
+    o.drawSSL := v_drawSSL
+    o.drawLongOK := v_drawLongOK
+    o.drawShortOK := v_drawShortOK
+    o.drawTxt := v_drawTxt
+    o.inHtfBullPOI := v_inHtfBullPOI
+    o.inHtfBearPOI := v_inHtfBearPOI
+    o.poiLongOK := v_poiLongOK
+    o.poiShortOK := v_poiShortOK
+    o.inBullIFVG := v_inBullIFVG
+    o.inBearIFVG := v_inBearIFVG
+    o.bprActive := v_bprActive
+    o.nearBPR := v_nearBPR
+    o.nyMin := v_nyMin
+    o.timeConf := v_timeConf
+    o.inNews := v_inNews
+    o.inLonClose := v_inLonClose
+    o.inNyLunch := v_inNyLunch
+    o.inDeadHrs := v_inDeadHrs
+    o.inLondon := v_inLondon
+    o.inNY := v_inNY
+    o.inSB := v_inSB
+    o.sessionOK := v_sessionOK
+    o.hierLong := v_hierLong
+    o.hierShort := v_hierShort
+    o.hierOKL := v_hierOKL
+    o.hierOKS := v_hierOKS
+    o.amdPhase := v_amdPhase
+    o.amdLongOK := v_amdLongOK
+    o.amdShortOK := v_amdShortOK
+    o.amdTxt := v_amdTxt
+    o.aPlusLong := v_aPlusLong
+    o.aPlusShort := v_aPlusShort
+    o.aPlusOKL := v_aPlusOKL
+    o.aPlusOKS := v_aPlusOKS
+    o
+
+EliteSnap ee = f_runEliteEdge()
+lastBullFvgTop := ee.lastBullFvgTop
+lastBullFvgBot := ee.lastBullFvgBot
+lastBearFvgTop := ee.lastBearFvgTop
+lastBearFvgBot := ee.lastBearFvgBot
+ifvgTop := ee.ifvgTop
+ifvgBot := ee.ifvgBot
+ifvgDir := ee.ifvgDir
+asiaHighSweptLondon := ee.asiaHighSweptLondon
+asiaLowSweptLondon := ee.asiaLowSweptLondon
+londonHighSweptNY := ee.londonHighSweptNY
+londonLowSweptNY := ee.londonLowSweptNY
+londonH := ee.londonH
+londonL := ee.londonL
+drawBSL = ee.drawBSL
+drawSSL = ee.drawSSL
+drawLongOK = ee.drawLongOK
+drawShortOK = ee.drawShortOK
+drawTxt = ee.drawTxt
+inHtfBullPOI = ee.inHtfBullPOI
+inHtfBearPOI = ee.inHtfBearPOI
+poiLongOK = ee.poiLongOK
+poiShortOK = ee.poiShortOK
+inBullIFVG = ee.inBullIFVG
+inBearIFVG = ee.inBearIFVG
+bprActive = ee.bprActive
+nearBPR = ee.nearBPR
+nyMin = ee.nyMin
+timeConf = ee.timeConf
+inNews = ee.inNews
+inLonClose = ee.inLonClose
+inNyLunch = ee.inNyLunch
+inDeadHrs = ee.inDeadHrs
+inLondon = ee.inLondon
+inNY = ee.inNY
+inSB = ee.inSB
+sessionOK = ee.sessionOK
+hierLong = ee.hierLong
+hierShort = ee.hierShort
+hierOKL = ee.hierOKL
+hierOKS = ee.hierOKS
+amdPhase = ee.amdPhase
+amdLongOK = ee.amdLongOK
+amdShortOK = ee.amdShortOK
+amdTxt = ee.amdTxt
+aPlusLong = ee.aPlusLong
+aPlusShort = ee.aPlusShort
+aPlusOKL = ee.aPlusOKL
+aPlusOKS = ee.aPlusOKS
+
 
 // ═══════════════════════════ FILTERS ═══════════════════════════
 body     = math.abs(close - open)
@@ -1580,6 +2322,7 @@ type PendSnap
     int zoneBorn
     box zoneBox
     float armSL
+    bool clearPend
     bool fireLong
     bool fireShort
     float slLong
@@ -1591,7 +2334,7 @@ type PendSnap
     bool cisdLongMark
     bool cisdShortMark
 
-f_runPendingAndFire() =>
+f_runPendingArm() =>
     int v_pendDir = pendDir
     int v_pendBars = pendBars
     float v_pendExtreme = pendExtreme
@@ -1621,8 +2364,6 @@ f_runPendingAndFire() =>
     // Raw reversal setups — liquidity/PA + elite gates + v6.1 complete playbook
     revLongSetup  = pb.allowRev and anyBull and bullCndl and dispOK and pb.gBiasL and pb.gCorrL and sessionOK and pb.gStochL and pb.gPtjL and pb.volOK and pb.gradeOKL and hierOKL and nestOKL and premDiscLongOK and smtLongOK and drawLongOK and poiLongOK and amdLongOK and aPlusOKL and pb.dailyLongOK and pb.judasLongOK and pb.dispLongOK and pb.sbModelLongOK and (not pb.hardF or qualityBull or minWickRatio <= 0)
     revShortSetup = pb.allowRev and anyBear and bearCndl and dispOK and pb.gBiasS and pb.gCorrS and sessionOK and pb.gStochS and pb.gPtjS and pb.volOK and pb.gradeOKS and hierOKS and nestOKS and premDiscShortOK and smtShortOK and drawShortOK and poiShortOK and amdShortOK and aPlusOKS and pb.dailyShortOK and pb.judasShortOK and pb.dispShortOK and pb.sbModelShortOK and (not pb.hardF or qualityBear or minWickRatio <= 0)
-    contLongSig   = pb.allowCont and contLong  and bullCndl and dispOK and pb.gBiasL and pb.gCorrL and sessionOK and pb.gPtjL and pb.volOK and pb.gradeOKL and premDiscLongOK and not pb.adrSpent and pb.dailyLongOK and pb.dispLongOK and pb.sbModelLongOK and pb.canSignal
-    contShortSig  = pb.allowCont and contShort and bearCndl and dispOK and pb.gBiasS and pb.gCorrS and sessionOK and pb.gPtjS and pb.volOK and pb.gradeOKS and premDiscShortOK and not pb.adrSpent and pb.dailyShortOK and pb.dispShortOK and pb.sbModelShortOK and pb.canSignal
 
     bool  v_fireLong  = false
     bool  v_fireShort = false
@@ -1635,15 +2376,6 @@ f_runPendingAndFire() =>
     bool  v_cisdLongMark = false
     bool  v_cisdShortMark = false
 
-    // ── Legacy reclaim entry ──
-    if revLongSetup and reclaimMode and pb.canSignal
-        v_fireLong := true
-        v_slLong   := sweepRefLong - slBufATR * atrVal
-        v_tagLong  := "Rev-Long " + pb.gradeL
-    if revShortSetup and reclaimMode and pb.canSignal
-        v_fireShort := true
-        v_slShort   := sweepRefShort + slBufATR * atrVal
-        v_tagShort  := "Rev-Short " + pb.gradeS
 
     // ── Arm institutional pending on sweep (FVG or PRO modes) ──
     if revLongSetup and fvgMode and v_pendDir == 0
@@ -1813,6 +2545,96 @@ f_runPendingAndFire() =>
         if v_pendBars <= 0
             clearPend := true
 
+    PendSnap o = PendSnap.new()
+    o.pendDir := v_pendDir
+    o.pendBars := v_pendBars
+    o.pendExtreme := v_pendExtreme
+    o.pendMSSLevel := v_pendMSSLevel
+    o.pendMSS := v_pendMSS
+    o.pendCISD := v_pendCISD
+    o.pendTag := v_pendTag
+    o.pendPool := v_pendPool
+    o.obTop := v_obTop
+    o.obBot := v_obBot
+    o.fvgTop := v_fvgTop
+    o.fvgBot := v_fvgBot
+    o.ceLevel := v_ceLevel
+    o.oteHi := v_oteHi
+    o.oteLo := v_oteLo
+    o.ote62 := v_ote62
+    o.ote79 := v_ote79
+    o.brkTop := v_brkTop
+    o.brkBot := v_brkBot
+    o.waitEntry := v_waitEntry
+    o.zoneBorn := v_zoneBorn
+    o.zoneBox := v_zoneBox
+    o.armSL := v_armSL
+    o.clearPend := clearPend
+    o.fireLong := v_fireLong
+    o.fireShort := v_fireShort
+    o.slLong := v_slLong
+    o.slShort := v_slShort
+    o.tagLong := v_tagLong
+    o.tagShort := v_tagShort
+    o.mssLongMark := v_mssLongMark
+    o.mssShortMark := v_mssShortMark
+    o.cisdLongMark := v_cisdLongMark
+    o.cisdShortMark := v_cisdShortMark
+    o
+
+
+f_runPendingEntry(PendSnap a) =>
+    int v_pendDir = a.pendDir
+    int v_pendBars = a.pendBars
+    float v_pendExtreme = a.pendExtreme
+    float v_pendMSSLevel = a.pendMSSLevel
+    bool v_pendMSS = a.pendMSS
+    bool v_pendCISD = a.pendCISD
+    string v_pendTag = a.pendTag
+    string v_pendPool = a.pendPool
+    float v_obTop = a.obTop
+    float v_obBot = a.obBot
+    float v_fvgTop = a.fvgTop
+    float v_fvgBot = a.fvgBot
+    float v_ceLevel = a.ceLevel
+    float v_oteHi = a.oteHi
+    float v_oteLo = a.oteLo
+    float v_ote62 = a.ote62
+    float v_ote79 = a.ote79
+    float v_brkTop = a.brkTop
+    float v_brkBot = a.brkBot
+    int v_waitEntry = a.waitEntry
+    int v_zoneBorn = a.zoneBorn
+    box v_zoneBox = a.zoneBox
+    float v_armSL = a.armSL
+    bool clearPend = a.clearPend
+    bool  v_fireLong  = a.fireLong
+    bool  v_fireShort = a.fireShort
+    float v_slLong    = a.slLong
+    float v_slShort   = a.slShort
+    string v_tagLong  = a.tagLong
+    string v_tagShort = a.tagShort
+    bool  v_mssLongMark = a.mssLongMark
+    bool  v_mssShortMark = a.mssShortMark
+    bool  v_cisdLongMark = a.cisdLongMark
+    bool  v_cisdShortMark = a.cisdShortMark
+
+    // Raw setups (reclaim / continuation / tester)
+    revLongSetup  = pb.allowRev and anyBull and bullCndl and dispOK and pb.gBiasL and pb.gCorrL and sessionOK and pb.gStochL and pb.gPtjL and pb.volOK and pb.gradeOKL and hierOKL and nestOKL and premDiscLongOK and smtLongOK and drawLongOK and poiLongOK and amdLongOK and aPlusOKL and pb.dailyLongOK and pb.judasLongOK and pb.dispLongOK and pb.sbModelLongOK and (not pb.hardF or qualityBull or minWickRatio <= 0)
+    revShortSetup = pb.allowRev and anyBear and bearCndl and dispOK and pb.gBiasS and pb.gCorrS and sessionOK and pb.gStochS and pb.gPtjS and pb.volOK and pb.gradeOKS and hierOKS and nestOKS and premDiscShortOK and smtShortOK and drawShortOK and poiShortOK and amdShortOK and aPlusOKS and pb.dailyShortOK and pb.judasShortOK and pb.dispShortOK and pb.sbModelShortOK and (not pb.hardF or qualityBear or minWickRatio <= 0)
+    contLongSig   = pb.allowCont and contLong  and bullCndl and dispOK and pb.gBiasL and pb.gCorrL and sessionOK and pb.gPtjL and pb.volOK and pb.gradeOKL and premDiscLongOK and not pb.adrSpent and pb.dailyLongOK and pb.dispLongOK and pb.sbModelLongOK and pb.canSignal
+    contShortSig  = pb.allowCont and contShort and bearCndl and dispOK and pb.gBiasS and pb.gCorrS and sessionOK and pb.gPtjS and pb.volOK and pb.gradeOKS and premDiscShortOK and not pb.adrSpent and pb.dailyShortOK and pb.dispShortOK and pb.sbModelShortOK and pb.canSignal
+
+    // ── Legacy reclaim entry ──
+    if revLongSetup and reclaimMode and pb.canSignal
+        v_fireLong := true
+        v_slLong   := sweepRefLong - slBufATR * atrVal
+        v_tagLong  := "Rev-Long " + pb.gradeL
+    if revShortSetup and reclaimMode and pb.canSignal
+        v_fireShort := true
+        v_slShort   := sweepRefShort + slBufATR * atrVal
+        v_tagShort  := "Rev-Short " + pb.gradeS
+
     // Retest entry: CE (50%) preferred, else zone edge; OTE filter when armed
     bool oteLongOK = not useOTE or na(v_ote62) or na(v_ote79) or ((low <= v_ote62 and high >= v_ote79) or (close <= v_ote62 and close >= v_ote79))
     bool oteShortOK = not useOTE or na(v_ote62) or na(v_ote79) or ((high >= v_ote62 and low <= v_ote79) or (close >= v_ote62 and close <= v_ote79))
@@ -1919,6 +2741,7 @@ f_runPendingAndFire() =>
     o.zoneBorn := v_zoneBorn
     o.zoneBox := v_zoneBox
     o.armSL := v_armSL
+    o.clearPend := clearPend
     o.fireLong := v_fireLong
     o.fireShort := v_fireShort
     o.slLong := v_slLong
@@ -1931,7 +2754,9 @@ f_runPendingAndFire() =>
     o.cisdShortMark := v_cisdShortMark
     o
 
-PendSnap ps = f_runPendingAndFire()
+
+PendSnap pendArm = f_runPendingArm()
+PendSnap ps = f_runPendingEntry(pendArm)
 pendDir := ps.pendDir
 pendBars := ps.pendBars
 pendExtreme := ps.pendExtreme
