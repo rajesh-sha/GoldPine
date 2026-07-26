@@ -1,13 +1,13 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Gold Liquidity Sweep PRO v6.7.8 — STRATEGY TESTER [Rajesh Sha]
+// Gold Liquidity Sweep PRO v6.7.9 — STRATEGY TESTER [Rajesh Sha]
 // Same map/signals as the indicator, wired for TradingView Strategy Tester.
 // TRADE CLOCK = America/New_York · DISPLAY = Melbourne (table)
 // USE: OANDA:XAUUSD or TVC:GOLD, 1-minute. TESTER MODE ON by default (more trades).
 // Remove + re-add script after paste so new defaults apply. Orders fill on bar close.
 // ═══════════════════════════════════════════════════════════════════════════
 //@version=6
-strategy("Gold Liquidity Sweep PRO v6.7.8 — Strategy",
-     shorttitle = "GOLD LiqSweep STR v6.7.8",
+strategy("Gold Liquidity Sweep PRO v6.7.9 — Strategy",
+     shorttitle = "GOLD LiqSweep STR v6.7.9",
      overlay = true,
      pyramiding = 0,
      process_orders_on_close = true,
@@ -543,7 +543,7 @@ if newDay
         if not na(dayOpenLb)
             label.delete(dayOpenLb)
         dayOpenLn := line.new(bar_index, dayOpen, bar_index + 1, dayOpen, extend = extend.right, color = color.rgb(191, 128, 64), width = 1, style = line.style_dotted)
-        dayOpenLb := label.new(bar_index, dayOpen, useSimple ? "DAY OPEN " + str.tostring(dayOpen, format.mintick) + " · magnet" : "Day-O  " + str.tostring(dayOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(191, 128, 64)), textcolor = f_lblTx(color.rgb(191, 128, 64)), size = size.small)
+        dayOpenLb := label.new(bar_index, dayOpen, useSimple ? "DAY OPEN " + str.tostring(dayOpen, format.mintick) + " · comes back here" : "Day-O  " + str.tostring(dayOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(191, 128, 64)), textcolor = f_lblTx(color.rgb(191, 128, 64)), size = size.small)
 else
     if na(cdH) or high > cdH
         cdH := high
@@ -571,7 +571,7 @@ if newWeek
         if not na(weekOpenLb)
             label.delete(weekOpenLb)
         weekOpenLn := line.new(bar_index, weekOpen, bar_index + 1, weekOpen, extend = extend.right, color = color.rgb(176, 106, 56), width = 1, style = line.style_dotted)
-        weekOpenLb := label.new(bar_index, weekOpen, useSimple ? "WEEK OPEN " + str.tostring(weekOpen, format.mintick) + " · magnet" : "Week-O  " + str.tostring(weekOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(176, 106, 56)), textcolor = f_lblTx(color.rgb(176, 106, 56)), size = size.small)
+        weekOpenLb := label.new(bar_index, weekOpen, useSimple ? "WEEK OPEN " + str.tostring(weekOpen, format.mintick) + " · comes back here" : "Week-O  " + str.tostring(weekOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(176, 106, 56)), textcolor = f_lblTx(color.rgb(176, 106, 56)), size = size.small)
 else
     if na(cwH) or high > cwH
         cwH := high
@@ -590,7 +590,7 @@ if useOpens and newNYMid
     if not na(midOpenLb)
         label.delete(midOpenLb)
     midOpenLn := line.new(bar_index, midOpen, bar_index + 1, midOpen, extend = extend.right, color = color.rgb(255, 152, 0), width = 2, style = line.style_dotted)
-    midOpenLb := label.new(bar_index, midOpen, useSimple ? "NY OPEN " + str.tostring(midOpen, format.mintick) + " · lean" : "NY-Mid  " + str.tostring(midOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(255, 152, 0)), textcolor = f_lblTx(color.rgb(255, 152, 0)), size = size.small)
+    midOpenLb := label.new(bar_index, midOpen, useSimple ? "NY OPEN " + str.tostring(midOpen, format.mintick) + " · comes back here" : "NY-Mid  " + str.tostring(midOpen, format.mintick), style = label.style_label_right, color = f_lblBg(color.rgb(255, 152, 0)), textcolor = f_lblTx(color.rgb(255, 152, 0)), size = size.small)
 
 // ── NDOG / NWOG (New Day / New Week Opening Gaps) ──
 var float ndogTop = na
@@ -1093,7 +1093,7 @@ bool dailyShortOK = not useDailyBias or not effReqDaily or dailySellLean
 string dailyBiasTxt = not useDailyBias ? "Off" : dailyBuyLean ? (useSimple ? "BUY ONLY today (discount vs open)" : "BUY day locked") : dailySellLean ? (useSimple ? "SELL ONLY today (premium vs open)" : "SELL day locked") : (useSimple ? "Mixed — no side yet" : "Mixed")
 string dailyOpenTxt = na(biasOpenRef) ? "-" : (belowOpen ? (useSimple ? "Below open = cheaper zone" : "Disc vs open") : aboveOpen ? (useSimple ? "Above open = richer zone" : "Prem vs open") : "At open")
 string midDateTxt = na(midOpenTime) ? (useSimple ? "no date yet" : "-") : str.format_time(midOpenTime, "dd MMM yyyy", TZ_NY)
-string midMonitorTxt = not useOpens ? "Off" : na(midOpen) ? (useSimple ? "Waiting for next NY day open" : "Waiting NY mid") : (str.tostring(midOpen, format.mintick) + " · " + midDateTxt + " (NY)" + (close < midOpen ? (useSimple ? " · NOW below → BUY lean" : " · below") : close > midOpen ? (useSimple ? " · NOW above → SELL lean" : " · above") : (useSimple ? " · at open" : " · at")))
+string midMonitorTxt = not useOpens ? "Off" : na(midOpen) ? (useSimple ? "Waiting for next NY day open" : "Waiting NY mid") : (str.tostring(midOpen, format.mintick) + " · " + midDateTxt + " (NY)" + (close < midOpen ? (useSimple ? " · NOW below = BUY side" : " · below") : close > midOpen ? (useSimple ? " · NOW above = SELL side" : " · above") : (useSimple ? " · at open" : " · at")))
 string dayDateTxt = na(dayOpenTime) ? (useSimple ? "no date yet" : "-") : (str.format_time(dayOpenTime, "dd MMM yyyy", TZ_NY) + " NY · " + str.format_time(dayOpenTime, "dd MMM HH:mm", sigTZ) + " Melb")
 string weekDateTxt = na(weekOpenTime) ? (useSimple ? "no date yet" : "-") : (str.format_time(weekOpenTime, "dd MMM yyyy", TZ_NY) + " NY · " + str.format_time(weekOpenTime, "dd MMM HH:mm", sigTZ) + " Melb")
 string dayMonitorTxt = not useOpens ? "Off" : na(dayOpen) ? (useSimple ? "Waiting for NY day open" : "n/a") : (str.tostring(dayOpen, format.mintick) + " · " + dayDateTxt + (close < dayOpen ? (useSimple ? " · below · BUY can cash out here" : " · below") : close > dayOpen ? (useSimple ? " · above · SELL can cash out here" : " · above") : (useSimple ? " · at open" : " · at")))
@@ -1821,20 +1821,20 @@ f_samePrint(float a, float b) =>
     not na(a) and not na(b) and math.abs(a - b) <= math.max(syminfo.mintick * 4, close * 0.00002)
 
 f_leanTxt(float ref) =>
-    na(ref) ? "" : close < ref ? (useSimple ? "below→BUY" : "disc") : close > ref ? (useSimple ? "above→SELL" : "prem") : (useSimple ? "at open" : "flat")
+    na(ref) ? "" : close < ref ? (useSimple ? "below = BUY side" : "disc") : close > ref ? (useSimple ? "above = SELL side" : "prem") : (useSimple ? "at open" : "flat")
 
 f_dayOpenTxt() =>
-    useSimple ? "DAY OPEN " + str.tostring(dayOpen, format.mintick) + " · magnet" : "Day-O " + str.tostring(dayOpen, format.mintick)
+    useSimple ? "DAY OPEN " + str.tostring(dayOpen, format.mintick) + " · " + f_leanTxt(dayOpen) + " · comes back here" : "Day-O " + str.tostring(dayOpen, format.mintick)
 
 f_weekOpenTxt() =>
-    useSimple ? "WEEK OPEN " + str.tostring(weekOpen, format.mintick) + " · magnet" : "Week-O " + str.tostring(weekOpen, format.mintick)
+    useSimple ? "WEEK OPEN " + str.tostring(weekOpen, format.mintick) + " · comes back here" : "Week-O " + str.tostring(weekOpen, format.mintick)
 
 f_midOpenTxt() =>
-    useSimple ? "NY OPEN " + str.tostring(midOpen, format.mintick) + " · " + f_leanTxt(midOpen) : "NY-Mid " + str.tostring(midOpen, format.mintick)
+    useSimple ? "NY OPEN " + str.tostring(midOpen, format.mintick) + " · " + f_leanTxt(midOpen) + " · comes back here" : "NY-Mid " + str.tostring(midOpen, format.mintick)
 
 // One label when Today open == NY midnight (common)
 f_dayMidTxt() =>
-    useSimple ? "NY DAY OPEN " + str.tostring(dayOpen, format.mintick) + " · " + f_leanTxt(dayOpen) + " · magnet" : "Day/NY-O " + str.tostring(dayOpen, format.mintick)
+    useSimple ? "NY DAY OPEN " + str.tostring(dayOpen, format.mintick) + " · " + f_leanTxt(dayOpen) + " · comes back here" : "Day/NY-O " + str.tostring(dayOpen, format.mintick)
 
 // Rebuild a level's short base text (avoids appending forever)
 f_levelBaseTxt(LiqLevel L) =>
@@ -2319,7 +2319,7 @@ if showTable and barstate.islast
     color midMonCol = not useOpens or na(midOpen) ? color.gray : close < midOpen ? tblGood : close > midOpen ? tblBad : color.orange
 
     // ═══════════ LAYOUT (read top → bottom) ═══════════
-    table.cell(t, 0, 0, "GOLD LiqSweep STR v6.7.8", text_color = color.white, bgcolor = color.navy, text_size = size.small)
+    table.cell(t, 0, 0, "GOLD LiqSweep STR v6.7.9", text_color = color.white, bgcolor = color.navy, text_size = size.small)
     table.cell(t, 1, 0, hdrStatus, text_color = color.white, bgcolor = hdrBg, text_size = size.small)
 
     f_tblSec(t, 1, useSimple ? "1) GATE - can I trade now?" : "1) GATE")
@@ -2360,7 +2360,7 @@ if showTable and barstate.islast
     f_tblRow(t, 30, useSimple ? "Research edge (desk)" : "Edge", edgeTxt, tblMute, edgeCol)
     f_tblRow(t, 31, useSimple ? "Ideas today / last" : "Signals", str.tostring(signalsToday) + " / " + str.tostring(maxSigDay) + " · " + (lastTag == "" ? (useSimple ? "no idea yet" : "-") : lastTag + (na(lastEntry) or na(lastSL) or na(lastTP1) ? "" : " · SL " + str.tostring(lastSL, format.mintick) + " · TP " + str.tostring(lastTP1, format.mintick) + " · " + str.tostring(math.abs(lastTP1 - lastEntry) / math.abs(lastEntry - lastSL), "#.#") + "R")), tblMute, tblKey)
     table.cell(t, 0, 32, useSimple ? "How entries work" : "Mode", text_color = tblMute, text_size = size.tiny)
-    table.cell(t, 1, 32, useSimple ? "Research → wait gate → sweep → flip → pullback | STR v6.7.8" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | STR v6.7.8", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
+    table.cell(t, 1, 32, useSimple ? "Research → wait gate → sweep → flip → pullback | STR v6.7.9" : entryMode + (proMode ? " | MSS+CE/OTE" : "") + (pureLiq ? " | PURE" : "") + (aPlusMode ? " | A+" : "") + " | STR v6.7.9", text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 33, useSimple ? "Tools ON" : "Edges", text_color = tblMute, text_size = size.tiny)
     table.cell(t, 1, 33, useSimple ? ((useDailyBias ? "DaySide " : "") + (useJudasWin ? "FakeMove " : "") + (useDispGate ? "StrongPush " : "") + (sbPlaybook ? "BestHour " : "") + (useIPDA ? "20/40Day " : "") + (useSmtES ? "Stocks " : "") + (useDeadHrs ? "SlowHrs " : "") + (useHTFDraw ? "TP-lines " : "") + (useAMD ? "DayStory " : "") + (aPlusMode ? "TopOnly" : "")) : ((useDailyBias ? "DayBias " : "") + (useJudasWin ? "Judas " : "") + (useDispGate ? "DispFVG " : "") + (sbPlaybook ? "SB " : "") + (useIPDA ? "IPDA " : "") + (useSmtES ? "ES " : "") + (useDeadHrs ? "DeadHrs " : "") + (useHTFDraw ? "Draw " : "") + (useAMD ? "AMD " : "") + (aPlusMode ? "A+" : "")), text_color = lightTable ? color.rgb(21, 101, 192) : color.rgb(147, 197, 253), text_size = size.tiny)
     table.cell(t, 0, 34, useSimple ? "Desk rule" : "Flow", text_color = tblMute, text_size = size.tiny)
